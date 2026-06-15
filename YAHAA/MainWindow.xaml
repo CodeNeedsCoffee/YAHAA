@@ -13,5 +13,29 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Frame x:Name="rootFrame" />
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom title bar (drag region set via SetTitleBar) -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="48" Background="Transparent">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="12"
+                        VerticalAlignment="Center"
+                        Margin="16,0,0,0">
+                <Border Width="22" Height="22" CornerRadius="6">
+                    <Image x:Name="TitleBarLogo" Width="22" Height="22" Stretch="UniformToFill" />
+                </Border>
+                <TextBlock x:Name="AppTitleText"
+                           Text="YAHAA"
+                           VerticalAlignment="Center"
+                           FontSize="13"
+                           FontWeight="SemiBold" />
+            </StackPanel>
+        </Grid>
+
+        <Frame x:Name="rootFrame" Grid.Row="1" />
+    </Grid>
 </Window>

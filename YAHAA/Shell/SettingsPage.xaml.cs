@@ -18,6 +18,14 @@ namespace YAHAA.Shell
             UrlBox.Text = ConfigStore.ServerUrl;
             UsernameBox.Text = ConfigStore.Username;
             TokenBox.Password = ConfigStore.Token;
+
+            LogoChoice.SelectedIndex = (int)AppSettings.Logo;
+        }
+
+        private void LogoChoice_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (LogoChoice.SelectedIndex < 0) return;
+            AppSettings.SetLogo((AppLogo)LogoChoice.SelectedIndex);
         }
 
         private async void Test_Click(object sender, RoutedEventArgs e)

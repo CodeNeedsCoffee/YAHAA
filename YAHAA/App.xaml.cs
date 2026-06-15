@@ -32,6 +32,7 @@ namespace YAHAA
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
             ConfigStore.Load();
+            AppSettings.Load();
 
             var mainWindow = new MainWindow();
             _window = mainWindow;

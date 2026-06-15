@@ -48,6 +48,41 @@
                 </StackPanel>
             </Border>
 
+            <!-- Appearance card -->
+            <Border CornerRadius="12"
+                    Padding="24"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Appearance" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Text="Choose which logo YAHAA shows in the title bar and setup screens."
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <RadioButtons x:Name="LogoChoice"
+                                  MaxColumns="2"
+                                  SelectionChanged="LogoChoice_SelectionChanged">
+                        <RadioButton>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Border Width="40" Height="40" CornerRadius="10">
+                                    <Image Source="ms-appx:///Assets/Logo-HA.png" Stretch="UniformToFill" />
+                                </Border>
+                                <TextBlock Text="HA" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Border Width="40" Height="40" CornerRadius="10">
+                                    <Image Source="ms-appx:///Assets/Logo-YAHAA.png" Stretch="UniformToFill" />
+                                </Border>
+                                <TextBlock Text="YAHAA" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+                    </RadioButtons>
+                </StackPanel>
+            </Border>
+
             <!-- Setup card -->
             <Border CornerRadius="12"
                     Padding="24"

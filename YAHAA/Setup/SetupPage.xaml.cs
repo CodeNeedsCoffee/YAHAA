@@ -3,6 +3,7 @@ using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Shapes;
 using YAHAA.Services;
 using YAHAA.Setup.Steps;
@@ -26,6 +27,8 @@ namespace YAHAA.Setup
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            HeaderLogo.Source = new BitmapImage(new Uri(AppSettings.CurrentLogoImageUri));
+
             _flow = new SetupFlow(StepFrame, new[]
             {
                 typeof(WelcomeStep),

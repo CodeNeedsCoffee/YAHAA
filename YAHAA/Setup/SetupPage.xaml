@@ -26,12 +26,11 @@
         <!-- Constant brand header -->
         <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,56,0,0" Spacing="14">
             <Border Width="76" Height="76" CornerRadius="22"
-                    Background="{StaticResource HaBlueBrush}"
                     HorizontalAlignment="Center">
                 <Border.Shadow>
                     <ThemeShadow />
                 </Border.Shadow>
-                <FontIcon Glyph="&#xE80F;" FontSize="38" Foreground="White" />
+                <Image x:Name="HeaderLogo" Width="76" Height="76" Stretch="UniformToFill" />
             </Border>
             <TextBlock Text="YAHAA"
                        HorizontalAlignment="Center"
