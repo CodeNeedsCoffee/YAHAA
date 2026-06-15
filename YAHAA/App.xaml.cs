@@ -21,6 +21,9 @@ namespace YAHAA
         /// <summary>The window-level frame that hosts either the setup wizard or the main shell.</summary>
         public Frame? RootFrame { get; private set; }
 
+        /// <summary>The application's main window (used e.g. to parent file pickers).</summary>
+        public Window? MainWindow => _window;
+
         public App()
         {
             InitializeComponent();
@@ -47,6 +50,10 @@ namespace YAHAA
 
             // Begin reporting device status (no-op until configured + reporting enabled).
             DeviceStatusService.Start();
+
+            // Bridge scripts to Home Assistant (no-op until enabled + a folder is chosen).
+            ScriptBridge.Start();
+            AppSettings.ScriptsChanged += () => ScriptBridge.Restart();
         }
 
         /// <summary>Navigates the root frame to the main app shell (after a successful setup).</summary>

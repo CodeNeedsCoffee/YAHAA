@@ -27,6 +27,8 @@ namespace YAHAA.Services
             public int IdleThresholdSeconds { get; set; } = 300;
             public int StatusDebounceSeconds { get; set; } = 5;
             public string DeviceName { get; set; } = string.Empty;
+            public bool ScriptsEnabled { get; set; }
+            public string ScriptsFolder { get; set; } = string.Empty;
         }
 
         public const int MinDebounceSeconds = 3;
@@ -61,8 +63,17 @@ namespace YAHAA.Services
         public static string EffectiveDeviceName =>
             string.IsNullOrWhiteSpace(DeviceName) ? Environment.MachineName : DeviceName;
 
+        /// <summary>Whether the Scripts feature (a folder of .ps1/.bat exposed to HA) is enabled.</summary>
+        public static bool ScriptsEnabled { get; private set; }
+
+        /// <summary>Folder scanned for .ps1/.bat scripts when <see cref="ScriptsEnabled"/> is on.</summary>
+        public static string ScriptsFolder { get; private set; } = string.Empty;
+
         /// <summary>Raised after the selected logo changes, so live UI can refresh itself.</summary>
         public static event Action? LogoChanged;
+
+        /// <summary>Raised when the Scripts toggle or folder changes.</summary>
+        public static event Action? ScriptsChanged;
 
         public static void Load()
         {
@@ -76,6 +87,8 @@ namespace YAHAA.Services
                 IdleThresholdSeconds = stored.IdleThresholdSeconds > 0 ? stored.IdleThresholdSeconds : 300;
                 StatusDebounceSeconds = Math.Clamp(stored.StatusDebounceSeconds, MinDebounceSeconds, MaxDebounceSeconds);
                 DeviceName = stored.DeviceName ?? string.Empty;
+                ScriptsEnabled = stored.ScriptsEnabled;
+                ScriptsFolder = stored.ScriptsFolder ?? string.Empty;
             }
             catch
             {
@@ -84,7 +97,26 @@ namespace YAHAA.Services
                 IdleThresholdSeconds = 300;
                 StatusDebounceSeconds = 5;
                 DeviceName = string.Empty;
+                ScriptsEnabled = false;
+                ScriptsFolder = string.Empty;
             }
+        }
+
+        public static void SetScriptsEnabled(bool enabled)
+        {
+            if (ScriptsEnabled == enabled) return;
+            ScriptsEnabled = enabled;
+            Save();
+            ScriptsChanged?.Invoke();
+        }
+
+        public static void SetScriptsFolder(string? folder)
+        {
+            var value = folder ?? string.Empty;
+            if (ScriptsFolder == value) return;
+            ScriptsFolder = value;
+            Save();
+            ScriptsChanged?.Invoke();
         }
 
         /// <summary>
@@ -162,6 +194,8 @@ namespace YAHAA.Services
                     IdleThresholdSeconds = IdleThresholdSeconds,
                     StatusDebounceSeconds = StatusDebounceSeconds,
                     DeviceName = DeviceName,
+                    ScriptsEnabled = ScriptsEnabled,
+                    ScriptsFolder = ScriptsFolder,
                 }));
             }
             catch

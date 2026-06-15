@@ -33,8 +33,10 @@ namespace YAHAA.Shell
             IdleBox.Value = AppSettings.IdleThresholdSeconds / 60.0;
             DebounceSlider.Value = AppSettings.StatusDebounceSeconds;
             UpdateDebounceLabel();
+            ScriptsToggle.IsOn = AppSettings.ScriptsEnabled;
             _initializing = false;
 
+            UpdateScriptsUi();
             UpdateDeviceStatus();
             DeviceStatusService.StatusChanged += OnReportingStatusChanged;
 
@@ -142,7 +144,54 @@ namespace YAHAA.Shell
                 UsernameBox.Text?.Trim() ?? string.Empty,
                 TokenBox.Password?.Trim() ?? string.Empty);
 
+            // Reconnect the scripts bridge to the (possibly new) server.
+            ScriptBridge.Restart();
+
             ShowResult(InfoBarSeverity.Success, "Connection saved.");
+        }
+
+        private async void ScriptsToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_initializing) return;
+
+            AppSettings.SetScriptsEnabled(ScriptsToggle.IsOn);
+            if (ScriptsToggle.IsOn && string.IsNullOrWhiteSpace(AppSettings.ScriptsFolder))
+            {
+                var folder = await PickFolderAsync();
+                if (folder is not null) AppSettings.SetScriptsFolder(folder);
+            }
+
+            UpdateScriptsUi();
+        }
+
+        private async void ChooseFolder_Click(object sender, RoutedEventArgs e)
+        {
+            var folder = await PickFolderAsync();
+            if (folder is not null)
+            {
+                AppSettings.SetScriptsFolder(folder);
+                UpdateScriptsUi();
+            }
+        }
+
+        private static async Task<string?> PickFolderAsync()
+        {
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            picker.FileTypeFilter.Add("*");
+
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.Current.MainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+            var folder = await picker.PickSingleFolderAsync();
+            return folder?.Path;
+        }
+
+        private void UpdateScriptsUi()
+        {
+            ScriptsFolderPanel.Visibility = AppSettings.ScriptsEnabled ? Visibility.Visible : Visibility.Collapsed;
+            ScriptsFolderText.Text = string.IsNullOrWhiteSpace(AppSettings.ScriptsFolder)
+                ? "(no folder selected)"
+                : AppSettings.ScriptsFolder;
         }
 
         private void Rerun_Click(object sender, RoutedEventArgs e) => App.Current.GoToSetup();
@@ -150,6 +199,7 @@ namespace YAHAA.Shell
         private void SignOut_Click(object sender, RoutedEventArgs e)
         {
             DeviceStatusService.Stop();
+            ScriptBridge.Stop();
             RegistrationStore.ClearWebhook();
             ConfigStore.Clear();
             App.Current.GoToSetup();

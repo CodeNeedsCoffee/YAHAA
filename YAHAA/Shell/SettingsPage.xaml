@@ -148,6 +148,52 @@
                 </StackPanel>
             </Border>
 
+            <!-- Scripts card -->
+            <Border CornerRadius="12"
+                    Padding="24"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Scripts" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Text="Expose a folder of .ps1 / .bat scripts as buttons in Home Assistant."
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Enable scripts" VerticalAlignment="Center" />
+                        <ToggleSwitch x:Name="ScriptsToggle"
+                                      Grid.Column="1"
+                                      Toggled="ScriptsToggle_Toggled" />
+                    </Grid>
+
+                    <StackPanel x:Name="ScriptsFolderPanel" Spacing="6">
+                        <TextBlock Text="Scripts folder"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="ScriptsFolderText"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       IsTextSelectionEnabled="True" />
+                            <Button x:Name="ChooseFolderButton"
+                                    Grid.Column="1"
+                                    Margin="12,0,0,0"
+                                    Content="Choose folder…"
+                                    Click="ChooseFolder_Click" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- Setup card -->
             <Border CornerRadius="12"
                     Padding="24"

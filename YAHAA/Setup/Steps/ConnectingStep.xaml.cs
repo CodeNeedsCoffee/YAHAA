@@ -45,6 +45,7 @@ namespace YAHAA.Setup.Steps
 
                 // Register this device and begin reporting its status to Home Assistant.
                 DeviceStatusService.Start();
+                ScriptBridge.Start();
 
                 ShowSuccess(result);
                 await Task.Delay(1400);
