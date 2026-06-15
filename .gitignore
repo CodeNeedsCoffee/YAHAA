@@ -1,3 +1,6 @@
+# MSIX build output
+AppPackages/
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
