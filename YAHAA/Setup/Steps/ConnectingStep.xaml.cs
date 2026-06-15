@@ -42,6 +42,9 @@ namespace YAHAA.Setup.Steps
 
                 ConfigStore.Save(_flow.ServerUrl, _flow.Username, _flow.Token);
 
+                // Register this device and begin reporting its status to Home Assistant.
+                DeviceStatusService.Start();
+
                 ShowSuccess(result);
                 await Task.Delay(1400);
                 App.Current.GoToShell();

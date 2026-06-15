@@ -33,6 +33,7 @@ namespace YAHAA
         {
             ConfigStore.Load();
             AppSettings.Load();
+            RegistrationStore.Load();
 
             var mainWindow = new MainWindow();
             _window = mainWindow;
@@ -43,6 +44,9 @@ namespace YAHAA
                 : typeof(Setup.SetupPage));
 
             _window.Activate();
+
+            // Begin reporting device status (no-op until configured + reporting enabled).
+            DeviceStatusService.Start();
         }
 
         /// <summary>Navigates the root frame to the main app shell (after a successful setup).</summary>
