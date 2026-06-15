@@ -3,7 +3,7 @@
     x:Class="YAHAA.Shell.ScriptsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:scripts="using:YAHAA.Scripts"
+    xmlns:local="using:YAHAA.Shell"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -35,12 +35,13 @@
                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                    Visibility="Collapsed" />
 
-        <ListView x:Name="ScriptsList" Grid.Row="2" SelectionMode="None">
+        <ListView x:Name="ScriptsList" Grid.Row="2" SelectionMode="None" IsItemClickEnabled="True">
             <ListView.ItemTemplate>
-                <DataTemplate x:DataType="scripts:ScriptItem">
-                    <Grid Padding="0,8">
+                <DataTemplate x:DataType="local:ScriptRow">
+                    <Grid Padding="0,8" ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
@@ -49,7 +50,11 @@
                                        FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
-                        <Button Grid.Column="1" Content="Run" Click="Run_Click" />
+                        <ToggleSwitch Grid.Column="1"
+                                      VerticalAlignment="Center"
+                                      IsOn="{x:Bind Enabled, Mode=TwoWay}"
+                                      Toggled="Script_Toggled" />
+                        <Button Grid.Column="2" Content="Run" Click="Run_Click" VerticalAlignment="Center" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>

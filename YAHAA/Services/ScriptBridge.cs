@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -107,7 +108,10 @@ namespace YAHAA.Services
 
         private static async Task SyncHelpersAsync(HaWebSocketClient client, CancellationToken ct)
         {
-            var scripts = ScriptCatalog.Enumerate(AppSettings.ScriptsFolder);
+            // Only scripts the user has left enabled get an HA button.
+            var scripts = ScriptCatalog.Enumerate(AppSettings.ScriptsFolder)
+                .Where(s => AppSettings.IsScriptEnabled(s.Name))
+                .ToList();
 
             // Existing input_button helpers, keyed by friendly name -> storage id.
             var existing = new Dictionary<string, string>(StringComparer.Ordinal);

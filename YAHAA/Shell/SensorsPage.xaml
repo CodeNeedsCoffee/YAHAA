@@ -23,7 +23,7 @@
                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                    Text="Turn sensors on or off. Disabling a sensor stops reporting it and disables the matching entity in Home Assistant." />
 
-        <ListView x:Name="SensorsList" Grid.Row="2" SelectionMode="None">
+        <ListView x:Name="SensorsList" Grid.Row="2" SelectionMode="None" IsItemClickEnabled="True">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="local:SensorRow">
                     <Grid Padding="0,10">

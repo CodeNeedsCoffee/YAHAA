@@ -32,6 +32,7 @@ namespace YAHAA.Services
             public bool ScriptsEnabled { get; set; }
             public string ScriptsFolder { get; set; } = string.Empty;
             public List<string> DisabledSensors { get; set; } = new();
+            public List<string> DisabledScripts { get; set; } = new();
         }
 
         public const int MinDebounceSeconds = 3;
@@ -94,6 +95,19 @@ namespace YAHAA.Services
             SensorsEnabledChanged?.Invoke();
         }
 
+        /// <summary>Script file names (e.g. "backup.ps1") the user has turned off (no HA button).</summary>
+        private static HashSet<string> _disabledScripts = new(StringComparer.OrdinalIgnoreCase);
+
+        public static bool IsScriptEnabled(string scriptName) => !_disabledScripts.Contains(scriptName);
+
+        public static void SetScriptEnabled(string scriptName, bool enabled)
+        {
+            var changed = enabled ? _disabledScripts.Remove(scriptName) : _disabledScripts.Add(scriptName);
+            if (!changed) return;
+            Save();
+            ScriptsChanged?.Invoke();
+        }
+
         public static void Load()
         {
             try
@@ -109,6 +123,7 @@ namespace YAHAA.Services
                 ScriptsEnabled = stored.ScriptsEnabled;
                 ScriptsFolder = stored.ScriptsFolder ?? string.Empty;
                 _disabledSensors = new HashSet<string>(stored.DisabledSensors ?? new(), StringComparer.Ordinal);
+                _disabledScripts = new HashSet<string>(stored.DisabledScripts ?? new(), StringComparer.OrdinalIgnoreCase);
             }
             catch
             {
@@ -120,6 +135,7 @@ namespace YAHAA.Services
                 ScriptsEnabled = false;
                 ScriptsFolder = string.Empty;
                 _disabledSensors = new HashSet<string>(StringComparer.Ordinal);
+                _disabledScripts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
         }
 
@@ -218,6 +234,7 @@ namespace YAHAA.Services
                     ScriptsEnabled = ScriptsEnabled,
                     ScriptsFolder = ScriptsFolder,
                     DisabledSensors = _disabledSensors.ToList(),
+                    DisabledScripts = _disabledScripts.ToList(),
                 }));
             }
             catch
