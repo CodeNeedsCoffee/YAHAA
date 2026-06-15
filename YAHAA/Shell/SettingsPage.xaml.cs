@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -6,11 +7,14 @@ using YAHAA.Services;
 namespace YAHAA.Shell
 {
     /// <summary>
-    /// Lets the user view and edit the saved connection, test or save changes, re-run the
-    /// setup wizard, or sign out.
+    /// Lets the user view and edit the saved connection, manage device reporting, change the
+    /// logo, re-run the setup wizard, or sign out.
     /// </summary>
     public sealed partial class SettingsPage : Page
     {
+        private readonly DispatcherTimer _refreshTimer;
+        private bool _initializing;
+
         public SettingsPage()
         {
             InitializeComponent();
@@ -20,6 +24,56 @@ namespace YAHAA.Shell
             TokenBox.Password = ConfigStore.Token;
 
             LogoChoice.SelectedIndex = (int)AppSettings.Logo;
+
+            _initializing = true;
+            DeviceNameText.Text = DeviceInfo.Current.DeviceName;
+            ReportToggle.IsOn = AppSettings.ReportingEnabled;
+            IdleBox.Value = AppSettings.IdleThresholdSeconds / 60.0;
+            _initializing = false;
+
+            UpdateDeviceStatus();
+            DeviceStatusService.StatusChanged += OnReportingStatusChanged;
+
+            _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            _refreshTimer.Tick += (_, _) => UpdateDeviceStatus();
+            _refreshTimer.Start();
+
+            Unloaded += OnUnloaded;
+        }
+
+        private void OnUnloaded(object sender, RoutedEventArgs e)
+        {
+            _refreshTimer.Stop();
+            DeviceStatusService.StatusChanged -= OnReportingStatusChanged;
+        }
+
+        private void OnReportingStatusChanged() => DispatcherQueue.TryEnqueue(UpdateDeviceStatus);
+
+        private void UpdateDeviceStatus()
+        {
+            ReportStatusText.Text = AppSettings.ReportingEnabled ? DeviceStatusService.StatusText : "Off";
+
+            var active = Activity.IsActive(AppSettings.IdleThresholdSeconds);
+            ActiveNowText.Text = $"Currently: {(active ? "Active" : "Inactive")} — {Activity.IdleSeconds}s since last input";
+        }
+
+        private void ReportToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_initializing) return;
+
+            AppSettings.SetReportingEnabled(ReportToggle.IsOn);
+            if (ReportToggle.IsOn) DeviceStatusService.Start();
+            else DeviceStatusService.Stop();
+
+            UpdateDeviceStatus();
+        }
+
+        private void IdleBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            if (_initializing || double.IsNaN(args.NewValue)) return;
+
+            AppSettings.SetIdleThresholdSeconds((int)Math.Round(args.NewValue * 60));
+            UpdateDeviceStatus();
         }
 
         private void LogoChoice_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -71,6 +125,8 @@ namespace YAHAA.Shell
 
         private void SignOut_Click(object sender, RoutedEventArgs e)
         {
+            DeviceStatusService.Stop();
+            RegistrationStore.ClearWebhook();
             ConfigStore.Clear();
             App.Current.GoToSetup();
         }

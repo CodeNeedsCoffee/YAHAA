@@ -48,6 +48,51 @@
                 </StackPanel>
             </Border>
 
+            <!-- Device card -->
+            <Border CornerRadius="12"
+                    Padding="24"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Device" FontSize="18" FontWeight="SemiBold" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Report this device to Home Assistant" />
+                            <TextBlock x:Name="ReportStatusText"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="ReportToggle"
+                                      Grid.Column="1"
+                                      Toggled="ReportToggle_Toggled" />
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Device name:"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="DeviceNameText" />
+                    </StackPanel>
+
+                    <NumberBox x:Name="IdleBox"
+                               Header="Report inactive after (minutes of no input)"
+                               Minimum="1"
+                               Maximum="240"
+                               SmallChange="1"
+                               SpinButtonPlacementMode="Inline"
+                               ValueChanged="IdleBox_ValueChanged" />
+
+                    <TextBlock x:Name="ActiveNowText"
+                               FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
+
             <!-- Appearance card -->
             <Border CornerRadius="12"
                     Padding="24"
