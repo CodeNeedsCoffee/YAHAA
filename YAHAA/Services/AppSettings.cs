@@ -25,7 +25,11 @@ namespace YAHAA.Services
             public string Logo { get; set; } = nameof(AppLogo.Ha);
             public bool ReportingEnabled { get; set; } = true;
             public int IdleThresholdSeconds { get; set; } = 300;
+            public int StatusDebounceSeconds { get; set; } = 5;
         }
+
+        public const int MinDebounceSeconds = 3;
+        public const int MaxDebounceSeconds = 30;
 
         private static readonly string Folder =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YAHAA");
@@ -40,6 +44,12 @@ namespace YAHAA.Services
         /// <summary>Seconds of no input after which the PC is reported as inactive.</summary>
         public static int IdleThresholdSeconds { get; private set; } = 300;
 
+        /// <summary>
+        /// Seconds a changed active/inactive state must hold steady before it is reported to Home
+        /// Assistant (debounce, applied to both directions). Clamped to [3, 30].
+        /// </summary>
+        public static int StatusDebounceSeconds { get; private set; } = 5;
+
         /// <summary>Raised after the selected logo changes, so live UI can refresh itself.</summary>
         public static event Action? LogoChanged;
 
@@ -53,13 +63,23 @@ namespace YAHAA.Services
                 Logo = Enum.TryParse<AppLogo>(stored.Logo, out var parsed) ? parsed : AppLogo.Ha;
                 ReportingEnabled = stored.ReportingEnabled;
                 IdleThresholdSeconds = stored.IdleThresholdSeconds > 0 ? stored.IdleThresholdSeconds : 300;
+                StatusDebounceSeconds = Math.Clamp(stored.StatusDebounceSeconds, MinDebounceSeconds, MaxDebounceSeconds);
             }
             catch
             {
                 Logo = AppLogo.Ha;
                 ReportingEnabled = true;
                 IdleThresholdSeconds = 300;
+                StatusDebounceSeconds = 5;
             }
+        }
+
+        public static void SetStatusDebounceSeconds(int seconds)
+        {
+            seconds = Math.Clamp(seconds, MinDebounceSeconds, MaxDebounceSeconds);
+            if (StatusDebounceSeconds == seconds) return;
+            StatusDebounceSeconds = seconds;
+            Save();
         }
 
         public static void SetReportingEnabled(bool enabled)
@@ -113,6 +133,7 @@ namespace YAHAA.Services
                     Logo = Logo.ToString(),
                     ReportingEnabled = ReportingEnabled,
                     IdleThresholdSeconds = IdleThresholdSeconds,
+                    StatusDebounceSeconds = StatusDebounceSeconds,
                 }));
             }
             catch

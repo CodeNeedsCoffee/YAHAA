@@ -2,13 +2,14 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using YAHAA.Services;
 
 namespace YAHAA.Shell
 {
     /// <summary>
-    /// Lets the user view and edit the saved connection, manage device reporting, change the
-    /// logo, re-run the setup wizard, or sign out.
+    /// Lets the user view and edit the saved connection, test or save changes, re-run the
+    /// setup wizard, or sign out.
     /// </summary>
     public sealed partial class SettingsPage : Page
     {
@@ -29,6 +30,8 @@ namespace YAHAA.Shell
             DeviceNameText.Text = DeviceInfo.Current.DeviceName;
             ReportToggle.IsOn = AppSettings.ReportingEnabled;
             IdleBox.Value = AppSettings.IdleThresholdSeconds / 60.0;
+            DebounceSlider.Value = AppSettings.StatusDebounceSeconds;
+            UpdateDebounceLabel();
             _initializing = false;
 
             UpdateDeviceStatus();
@@ -75,6 +78,17 @@ namespace YAHAA.Shell
             AppSettings.SetIdleThresholdSeconds((int)Math.Round(args.NewValue * 60));
             UpdateDeviceStatus();
         }
+
+        private void DebounceSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            if (_initializing) return;
+
+            AppSettings.SetStatusDebounceSeconds((int)Math.Round(e.NewValue));
+            UpdateDebounceLabel();
+        }
+
+        private void UpdateDebounceLabel() =>
+            DebounceLabel.Text = $"Reporting delay: {AppSettings.StatusDebounceSeconds} s";
 
         private void LogoChoice_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {

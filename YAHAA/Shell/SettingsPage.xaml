@@ -87,6 +87,21 @@
                                SpinButtonPlacementMode="Inline"
                                ValueChanged="IdleBox_ValueChanged" />
 
+                    <StackPanel Spacing="2">
+                        <TextBlock x:Name="DebounceLabel" />
+                        <Slider x:Name="DebounceSlider"
+                                Minimum="3"
+                                Maximum="30"
+                                StepFrequency="1"
+                                TickFrequency="3"
+                                TickPlacement="Outside"
+                                ValueChanged="DebounceSlider_ValueChanged" />
+                        <TextBlock Text="A change must hold this long before it's reported, so brief activity doesn't cause flapping."
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+
                     <TextBlock x:Name="ActiveNowText"
                                FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

@@ -11,7 +11,7 @@ namespace YAHAA.Services
     /// </summary>
     public static class DeviceStatusService
     {
-        private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan Heartbeat = TimeSpan.FromMinutes(5);
         private static readonly object Gate = new();
 
@@ -63,7 +63,9 @@ namespace YAHAA.Services
 
         private static async Task RunAsync(CancellationToken ct)
         {
-            bool? lastSent = null;
+            bool? reported = null;             // the state Home Assistant currently believes
+            bool? pending = null;             // a flipped state waiting out the debounce window
+            var pendingSince = DateTime.MinValue;
             var lastSendUtc = DateTime.MinValue;
 
             try
@@ -72,31 +74,54 @@ namespace YAHAA.Services
                 {
                     if (await EnsureRegisteredAsync(ct).ConfigureAwait(false))
                     {
-                        var active = Activity.IsActive(AppSettings.IdleThresholdSeconds);
+                        var raw = Activity.IsActive(AppSettings.IdleThresholdSeconds);
                         var now = DateTime.UtcNow;
+                        var debounce = TimeSpan.FromSeconds(AppSettings.StatusDebounceSeconds);
 
-                        if (lastSent != active || now - lastSendUtc >= Heartbeat)
+                        if (reported is null)
                         {
-                            var result = await MobileAppClient
-                                .UpdateActiveSensorAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, active, ct)
-                                .ConfigureAwait(false);
-
-                            switch (result)
+                            // Establish the baseline immediately on (re)start.
+                            if (await SendAsync(raw, ct).ConfigureAwait(false))
                             {
-                                case WebhookResult.Ok:
-                                    lastSent = active;
+                                reported = raw;
+                                lastSendUtc = now;
+                                pending = null;
+                            }
+                        }
+                        else if (raw != reported)
+                        {
+                            // State differs from what HA knows — only report once it holds steady
+                            // for the debounce window (covers both active→inactive and back).
+                            if (pending != raw)
+                            {
+                                pending = raw;
+                                pendingSince = now;
+                                SetStatus(raw ? "Confirming active…" : "Confirming inactive…");
+                            }
+                            else if (now - pendingSince >= debounce)
+                            {
+                                if (await SendAsync(raw, ct).ConfigureAwait(false))
+                                {
+                                    reported = raw;
                                     lastSendUtc = now;
-                                    LastReportedActive = active;
-                                    SetStatus(active ? "Reporting • Active" : "Reporting • Inactive");
-                                    break;
-                                case WebhookResult.WebhookInvalid:
-                                    RegistrationStore.ClearWebhook();
-                                    lastSent = null;
-                                    SetStatus("Re-registering…");
-                                    break;
-                                default:
-                                    SetStatus("Couldn't reach Home Assistant");
-                                    break;
+                                    pending = null;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Raw matches what we reported — cancel any half-finished flip…
+                            if (pending is not null)
+                            {
+                                pending = null;
+                                SetStatus(reported.Value ? "Reporting • Active" : "Reporting • Inactive");
+                            }
+
+                            // …and keep the entity fresh with a periodic heartbeat.
+                            if (now - lastSendUtc >= Heartbeat)
+                            {
+                                if (await SendAsync(reported.Value, ct).ConfigureAwait(false))
+                                    lastSendUtc = now;
                             }
                         }
                     }
@@ -107,6 +132,28 @@ namespace YAHAA.Services
             catch (OperationCanceledException)
             {
                 // Normal shutdown.
+            }
+        }
+
+        private static async Task<bool> SendAsync(bool active, CancellationToken ct)
+        {
+            var result = await MobileAppClient
+                .UpdateActiveSensorAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, active, ct)
+                .ConfigureAwait(false);
+
+            switch (result)
+            {
+                case WebhookResult.Ok:
+                    LastReportedActive = active;
+                    SetStatus(active ? "Reporting • Active" : "Reporting • Inactive");
+                    return true;
+                case WebhookResult.WebhookInvalid:
+                    RegistrationStore.ClearWebhook();
+                    SetStatus("Re-registering…");
+                    return false;
+                default:
+                    SetStatus("Couldn't reach Home Assistant");
+                    return false;
             }
         }
 
