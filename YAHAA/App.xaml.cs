@@ -50,6 +50,7 @@ namespace YAHAA
 
             // Begin reporting device status (no-op until configured + reporting enabled).
             DeviceStatusService.Start();
+            AppSettings.SensorsEnabledChanged += () => DeviceStatusService.RequestSensorSync();
 
             // Bridge scripts to Home Assistant (no-op until enabled + a folder is chosen).
             ScriptBridge.Start();

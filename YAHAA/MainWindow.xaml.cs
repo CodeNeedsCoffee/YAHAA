@@ -107,10 +107,15 @@ namespace YAHAA
             AppWindow.MoveInZOrderAtTop();
         }
 
-        private void ExitApp()
+        private async void ExitApp()
         {
             _forceClose = true;
             _trayIcon.Dispose();
+
+            // Mark sensors unknown in HA before quitting so stale values don't linger.
+            ScriptBridge.Stop();
+            await DeviceStatusService.ReportOfflineAndStopAsync();
+
             Close();
         }
     }

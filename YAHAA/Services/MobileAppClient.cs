@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -125,7 +126,8 @@ namespace YAHAA.Services
         }
 
         public static Task<WebhookResult> RegisterSensorAsync(
-            string baseUrl, string webhookId, SensorDefinition def, bool state, CancellationToken ct = default)
+            string baseUrl, string webhookId, SensorDefinition def, bool state, bool disabled = false,
+            CancellationToken ct = default)
         {
             var payload = new
             {
@@ -137,6 +139,7 @@ namespace YAHAA.Services
                     type = "binary_sensor",
                     state,
                     icon = def.IconFor(state),
+                    disabled,
                 },
             };
             return PostWebhookAsync(baseUrl, webhookId, payload, ct);
@@ -151,6 +154,21 @@ namespace YAHAA.Services
                 var r = readings[i];
                 data[i] = new { unique_id = r.UniqueId, state = r.State, icon = r.Icon };
             }
+
+            var payload = new { type = "update_sensor_states", data };
+            return PostWebhookAsync(baseUrl, webhookId, payload, ct);
+        }
+
+        /// <summary>
+        /// Sets the given sensors to a null state, which Home Assistant renders as "unknown"
+        /// (used when the app is shutting down so stale "on"/"active" values don't linger).
+        /// </summary>
+        public static Task<WebhookResult> SetSensorsUnknownAsync(
+            string baseUrl, string webhookId, IEnumerable<string> uniqueIds, CancellationToken ct = default)
+        {
+            var data = uniqueIds
+                .Select(id => (object)new { unique_id = id, state = (object?)null })
+                .ToArray();
 
             var payload = new { type = "update_sensor_states", data };
             return PostWebhookAsync(baseUrl, webhookId, payload, ct);

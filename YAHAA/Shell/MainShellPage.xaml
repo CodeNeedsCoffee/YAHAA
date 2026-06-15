@@ -19,6 +19,11 @@
                     <FontIcon Glyph="&#xE80F;" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
+            <NavigationViewItem x:Name="SensorsItem" Content="Sensors" Tag="sensors">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE9D9;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
             <NavigationViewItem x:Name="ScriptsItem" Content="Scripts" Tag="scripts" Visibility="Collapsed">
                 <NavigationViewItem.Icon>
                     <FontIcon Glyph="&#xE756;" />

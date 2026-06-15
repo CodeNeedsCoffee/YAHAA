@@ -48,6 +48,9 @@ namespace YAHAA.Shell
                     case "home":
                         ContentFrame.Navigate(typeof(HomePage), null, args.RecommendedNavigationTransitionInfo);
                         break;
+                    case "sensors":
+                        ContentFrame.Navigate(typeof(SensorsPage), null, args.RecommendedNavigationTransitionInfo);
+                        break;
                     case "scripts":
                         ContentFrame.Navigate(typeof(ScriptsPage), null, args.RecommendedNavigationTransitionInfo);
                         break;

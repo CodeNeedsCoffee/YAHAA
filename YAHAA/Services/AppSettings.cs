@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace YAHAA.Services
@@ -29,6 +31,7 @@ namespace YAHAA.Services
             public string DeviceName { get; set; } = string.Empty;
             public bool ScriptsEnabled { get; set; }
             public string ScriptsFolder { get; set; } = string.Empty;
+            public List<string> DisabledSensors { get; set; } = new();
         }
 
         public const int MinDebounceSeconds = 3;
@@ -75,6 +78,22 @@ namespace YAHAA.Services
         /// <summary>Raised when the Scripts toggle or folder changes.</summary>
         public static event Action? ScriptsChanged;
 
+        /// <summary>Unique ids of sensors the user has turned off (not reported / disabled in HA).</summary>
+        private static HashSet<string> _disabledSensors = new(StringComparer.Ordinal);
+
+        /// <summary>Raised when a sensor is enabled or disabled.</summary>
+        public static event Action? SensorsEnabledChanged;
+
+        public static bool IsSensorEnabled(string sensorId) => !_disabledSensors.Contains(sensorId);
+
+        public static void SetSensorEnabled(string sensorId, bool enabled)
+        {
+            var changed = enabled ? _disabledSensors.Remove(sensorId) : _disabledSensors.Add(sensorId);
+            if (!changed) return;
+            Save();
+            SensorsEnabledChanged?.Invoke();
+        }
+
         public static void Load()
         {
             try
@@ -89,6 +108,7 @@ namespace YAHAA.Services
                 DeviceName = stored.DeviceName ?? string.Empty;
                 ScriptsEnabled = stored.ScriptsEnabled;
                 ScriptsFolder = stored.ScriptsFolder ?? string.Empty;
+                _disabledSensors = new HashSet<string>(stored.DisabledSensors ?? new(), StringComparer.Ordinal);
             }
             catch
             {
@@ -99,6 +119,7 @@ namespace YAHAA.Services
                 DeviceName = string.Empty;
                 ScriptsEnabled = false;
                 ScriptsFolder = string.Empty;
+                _disabledSensors = new HashSet<string>(StringComparer.Ordinal);
             }
         }
 
@@ -196,6 +217,7 @@ namespace YAHAA.Services
                     DeviceName = DeviceName,
                     ScriptsEnabled = ScriptsEnabled,
                     ScriptsFolder = ScriptsFolder,
+                    DisabledSensors = _disabledSensors.ToList(),
                 }));
             }
             catch
