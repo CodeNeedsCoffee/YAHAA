@@ -23,6 +23,7 @@ namespace YAHAA.Setup
         public string ServerUrl { get; set; } = string.Empty;
         public string Username { get; set; } = string.Empty;
         public string Token { get; set; } = string.Empty;
+        public string DeviceName { get; set; } = string.Empty;
         public string? LocationName { get; set; }
         public string? Version { get; set; }
 

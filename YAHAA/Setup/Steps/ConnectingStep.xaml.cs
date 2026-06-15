@@ -41,6 +41,7 @@ namespace YAHAA.Setup.Steps
                 _flow.Version = result.Version;
 
                 ConfigStore.Save(_flow.ServerUrl, _flow.Username, _flow.Token);
+                AppSettings.SetDeviceName(_flow.DeviceName);
 
                 // Register this device and begin reporting its status to Home Assistant.
                 DeviceStatusService.Start();

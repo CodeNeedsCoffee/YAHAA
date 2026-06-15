@@ -26,6 +26,7 @@ namespace YAHAA.Services
             public bool ReportingEnabled { get; set; } = true;
             public int IdleThresholdSeconds { get; set; } = 300;
             public int StatusDebounceSeconds { get; set; } = 5;
+            public string DeviceName { get; set; } = string.Empty;
         }
 
         public const int MinDebounceSeconds = 3;
@@ -50,6 +51,16 @@ namespace YAHAA.Services
         /// </summary>
         public static int StatusDebounceSeconds { get; private set; } = 5;
 
+        /// <summary>
+        /// User-chosen name reported to Home Assistant. Empty means "use the PC's name", which is
+        /// what <see cref="EffectiveDeviceName"/> resolves to.
+        /// </summary>
+        public static string DeviceName { get; private set; } = string.Empty;
+
+        /// <summary>The device name actually reported: the custom name, or the machine name.</summary>
+        public static string EffectiveDeviceName =>
+            string.IsNullOrWhiteSpace(DeviceName) ? Environment.MachineName : DeviceName;
+
         /// <summary>Raised after the selected logo changes, so live UI can refresh itself.</summary>
         public static event Action? LogoChanged;
 
@@ -64,6 +75,7 @@ namespace YAHAA.Services
                 ReportingEnabled = stored.ReportingEnabled;
                 IdleThresholdSeconds = stored.IdleThresholdSeconds > 0 ? stored.IdleThresholdSeconds : 300;
                 StatusDebounceSeconds = Math.Clamp(stored.StatusDebounceSeconds, MinDebounceSeconds, MaxDebounceSeconds);
+                DeviceName = stored.DeviceName ?? string.Empty;
             }
             catch
             {
@@ -71,7 +83,22 @@ namespace YAHAA.Services
                 ReportingEnabled = true;
                 IdleThresholdSeconds = 300;
                 StatusDebounceSeconds = 5;
+                DeviceName = string.Empty;
             }
+        }
+
+        /// <summary>
+        /// Sets the reported device name. A value equal to the machine name (or blank) is stored as
+        /// empty, so it keeps tracking the PC name automatically.
+        /// </summary>
+        public static void SetDeviceName(string? name)
+        {
+            var trimmed = (name ?? string.Empty).Trim();
+            if (string.Equals(trimmed, Environment.MachineName, StringComparison.OrdinalIgnoreCase))
+                trimmed = string.Empty;
+            if (DeviceName == trimmed) return;
+            DeviceName = trimmed;
+            Save();
         }
 
         public static void SetStatusDebounceSeconds(int seconds)
@@ -134,6 +161,7 @@ namespace YAHAA.Services
                     ReportingEnabled = ReportingEnabled,
                     IdleThresholdSeconds = IdleThresholdSeconds,
                     StatusDebounceSeconds = StatusDebounceSeconds,
+                    DeviceName = DeviceName,
                 }));
             }
             catch

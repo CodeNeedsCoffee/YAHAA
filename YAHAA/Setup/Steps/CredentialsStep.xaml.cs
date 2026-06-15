@@ -19,6 +19,7 @@ namespace YAHAA.Setup.Steps
             base.OnNavigatedTo(e);
             _flow = (SetupFlow)e.Parameter;
             UsernameBox.Text = _flow.Username;
+            DeviceNameBox.Text = _flow.DeviceName;
             TokenBox.Password = _flow.Token;
         }
 
@@ -36,6 +37,7 @@ namespace YAHAA.Setup.Steps
 
             ErrorBar.IsOpen = false;
             _flow.Username = UsernameBox.Text?.Trim() ?? string.Empty;
+            _flow.DeviceName = DeviceNameBox.Text?.Trim() ?? string.Empty;
             _flow.Token = token;
             _flow.Next();
         }

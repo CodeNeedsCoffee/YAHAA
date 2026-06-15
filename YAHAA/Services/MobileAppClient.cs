@@ -92,6 +92,28 @@ namespace YAHAA.Services
             }
         }
 
+        /// <summary>
+        /// Refreshes the device registration (device name, app version, etc.) so Home Assistant's
+        /// device diagnostics stay accurate. Uses the mobile_app "update_registration" webhook.
+        /// </summary>
+        public static Task<WebhookResult> UpdateRegistrationAsync(
+            string baseUrl, string webhookId, DeviceIdentity device, CancellationToken ct = default)
+        {
+            var payload = new
+            {
+                type = "update_registration",
+                data = new
+                {
+                    app_version = device.AppVersion,
+                    device_name = device.DeviceName,
+                    manufacturer = device.Manufacturer,
+                    model = device.Model,
+                    os_version = device.OsVersion,
+                },
+            };
+            return PostWebhookAsync(baseUrl, webhookId, payload, ct);
+        }
+
         public static Task<WebhookResult> RegisterActiveSensorAsync(
             string baseUrl, string webhookId, bool active, CancellationToken ct = default)
         {

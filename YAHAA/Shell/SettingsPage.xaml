@@ -73,10 +73,15 @@
                                       Toggled="ReportToggle_Toggled" />
                     </Grid>
 
+                    <TextBox x:Name="DeviceNameBox"
+                             Header="Device name"
+                             PlaceholderText="Name shown in Home Assistant"
+                             LostFocus="DeviceNameBox_LostFocus" />
+
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="Device name:"
+                        <TextBlock Text="App version:"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock x:Name="DeviceNameText" />
+                        <TextBlock x:Name="AppVersionText" />
                     </StackPanel>
 
                     <NumberBox x:Name="IdleBox"

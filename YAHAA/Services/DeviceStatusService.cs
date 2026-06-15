@@ -17,6 +17,7 @@ namespace YAHAA.Services
 
         private static CancellationTokenSource? _cts;
         private static Task? _loop;
+        private static volatile bool _registrationRefreshRequested;
 
         public static bool IsRunning
         {
@@ -37,6 +38,7 @@ namespace YAHAA.Services
                 if (!ConfigStore.IsConfigured || !AppSettings.ReportingEnabled) return;
                 if (_loop is { IsCompleted: false }) return;
 
+                _registrationRefreshRequested = true; // refresh device name / app version on start
                 _cts = new CancellationTokenSource();
                 _loop = Task.Run(() => RunAsync(_cts.Token));
             }
@@ -61,6 +63,9 @@ namespace YAHAA.Services
             Start();
         }
 
+        /// <summary>Asks the running loop to push an updated registration (e.g. after a name change).</summary>
+        public static void RequestRegistrationRefresh() => _registrationRefreshRequested = true;
+
         private static async Task RunAsync(CancellationToken ct)
         {
             bool? reported = null;             // the state Home Assistant currently believes
@@ -74,6 +79,24 @@ namespace YAHAA.Services
                 {
                     if (await EnsureRegisteredAsync(ct).ConfigureAwait(false))
                     {
+                        if (_registrationRefreshRequested)
+                        {
+                            var refresh = await MobileAppClient
+                                .UpdateRegistrationAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, DeviceInfo.Current, ct)
+                                .ConfigureAwait(false);
+
+                            if (refresh == WebhookResult.WebhookInvalid)
+                            {
+                                RegistrationStore.ClearWebhook();
+                                reported = null;
+                                pending = null;
+                            }
+                            else if (refresh == WebhookResult.Ok)
+                            {
+                                _registrationRefreshRequested = false;
+                            }
+                        }
+
                         var raw = Activity.IsActive(AppSettings.IdleThresholdSeconds);
                         var now = DateTime.UtcNow;
                         var debounce = TimeSpan.FromSeconds(AppSettings.StatusDebounceSeconds);

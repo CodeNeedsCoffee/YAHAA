@@ -27,7 +27,8 @@ namespace YAHAA.Shell
             LogoChoice.SelectedIndex = (int)AppSettings.Logo;
 
             _initializing = true;
-            DeviceNameText.Text = DeviceInfo.Current.DeviceName;
+            DeviceNameBox.Text = AppSettings.EffectiveDeviceName;
+            AppVersionText.Text = DeviceInfo.AppVersion;
             ReportToggle.IsOn = AppSettings.ReportingEnabled;
             IdleBox.Value = AppSettings.IdleThresholdSeconds / 60.0;
             DebounceSlider.Value = AppSettings.StatusDebounceSeconds;
@@ -77,6 +78,15 @@ namespace YAHAA.Shell
 
             AppSettings.SetIdleThresholdSeconds((int)Math.Round(args.NewValue * 60));
             UpdateDeviceStatus();
+        }
+
+        private void DeviceNameBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_initializing) return;
+
+            AppSettings.SetDeviceName(DeviceNameBox.Text);
+            DeviceNameBox.Text = AppSettings.EffectiveDeviceName;
+            DeviceStatusService.RequestRegistrationRefresh();
         }
 
         private void DebounceSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)

@@ -13,38 +13,55 @@ namespace YAHAA.Services
         string OsVersion,
         string AppVersion);
 
-    /// <summary>Builds (and caches) the <see cref="DeviceIdentity"/> for the current machine.</summary>
+    /// <summary>Builds the <see cref="DeviceIdentity"/> for the current machine.</summary>
     public static class DeviceInfo
     {
-        private static DeviceIdentity? _cached;
+        private static string? _manufacturer;
+        private static string? _model;
+        private static string? _appVersion;
 
-        public static DeviceIdentity Current => _cached ??= Build();
+        // Rebuilt each access so a changed device name is picked up immediately; the hardware
+        // and version lookups are cached.
+        public static DeviceIdentity Current => new(
+            DeviceId: RegistrationStore.DeviceId,
+            DeviceName: AppSettings.EffectiveDeviceName,
+            Manufacturer: Manufacturer,
+            Model: Model,
+            OsName: "Windows",
+            OsVersion: Environment.OSVersion.Version.ToString(),
+            AppVersion: AppVersion);
 
-        private static DeviceIdentity Build()
+        public static string AppVersion => _appVersion ??= ResolveAppVersion();
+
+        private static string Manufacturer => _manufacturer ??= ReadBios("SystemManufacturer");
+
+        private static string Model => _model ??= ReadBios("SystemProductName");
+
+        private static string ReadBios(string valueName)
         {
-            string manufacturer = string.Empty;
-            string model = string.Empty;
             try
             {
                 using var bios = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\BIOS");
-                manufacturer = bios?.GetValue("SystemManufacturer") as string ?? string.Empty;
-                model = bios?.GetValue("SystemProductName") as string ?? string.Empty;
+                return bios?.GetValue(valueName) as string ?? string.Empty;
             }
             catch
             {
-                // Hardware details are best-effort; registration works without them.
+                return string.Empty;
             }
+        }
 
-            var appVersion = typeof(DeviceInfo).Assembly.GetName().Version?.ToString() ?? "1.0.0";
-
-            return new DeviceIdentity(
-                DeviceId: RegistrationStore.DeviceId,
-                DeviceName: Environment.MachineName,
-                Manufacturer: manufacturer,
-                Model: model,
-                OsName: "Windows",
-                OsVersion: Environment.OSVersion.Version.ToString(),
-                AppVersion: appVersion);
+        private static string ResolveAppVersion()
+        {
+            // Prefer the MSIX package version when packaged; fall back to the assembly version.
+            try
+            {
+                var v = Windows.ApplicationModel.Package.Current.Id.Version;
+                return $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
+            }
+            catch
+            {
+                return typeof(DeviceInfo).Assembly.GetName().Version?.ToString() ?? "1.0.0";
+            }
         }
     }
 }

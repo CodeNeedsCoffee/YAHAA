@@ -40,6 +40,7 @@ namespace YAHAA.Setup
                 ServerUrl = ConfigStore.ServerUrl,
                 Username = ConfigStore.Username,
                 Token = ConfigStore.Token,
+                DeviceName = AppSettings.EffectiveDeviceName,
             };
 
             _flow.StepChanged += OnStepChanged;
