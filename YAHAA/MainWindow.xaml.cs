@@ -1,17 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
+using Microsoft.UI.Windowing;
+using Windows.Graphics;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -19,13 +9,30 @@ using Windows.Foundation.Collections;
 namespace YAHAA
 {
     /// <summary>
-    /// An empty window that can be used on its own or navigated to within a Frame.
+    /// The application window. Hosts a single root frame; its content is chosen at startup
+    /// (setup wizard vs. main shell) by <see cref="App.OnLaunched"/>.
     /// </summary>
     public sealed partial class MainWindow : Window
     {
         public MainWindow()
         {
             InitializeComponent();
+            SizeAndCenter(1100, 760);
+        }
+
+        /// <summary>The root navigation frame exposed to <see cref="App"/>.</summary>
+        public Frame RootFrame => rootFrame;
+
+        private void SizeAndCenter(int width, int height)
+        {
+            AppWindow.Resize(new SizeInt32(width, height));
+
+            var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
+            if (display is null) return;
+
+            var x = display.WorkArea.X + (display.WorkArea.Width - width) / 2;
+            var y = display.WorkArea.Y + (display.WorkArea.Height - height) / 2;
+            AppWindow.Move(new PointInt32(x, y));
         }
     }
 }

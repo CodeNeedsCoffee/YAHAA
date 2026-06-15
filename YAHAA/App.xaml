@@ -10,7 +10,13 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
-            <!-- Other app resources here -->
+
+            <!-- Home Assistant brand palette -->
+            <Color x:Key="HaBlue">#FF03A9F4</Color>
+            <Color x:Key="HaBlueDark">#FF0288D1</Color>
+            <Color x:Key="HaBlueGlow">#3303A9F4</Color>
+            <SolidColorBrush x:Key="HaBlueBrush" Color="{StaticResource HaBlue}" />
+            <SolidColorBrush x:Key="HaBlueDarkBrush" Color="{StaticResource HaBlueDark}" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

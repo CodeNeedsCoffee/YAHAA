@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="YAHAA.Setup.Steps.ServerStep"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24,32" MaxWidth="460" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <StackPanel Spacing="14" HorizontalAlignment="Stretch">
+            <TextBlock Text="Connect to your home"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="Enter the address of your Home Assistant instance."
+                       FontSize="14"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+            <TextBox x:Name="UrlBox"
+                     Header="Home Assistant URL"
+                     PlaceholderText="http://homeassistant.local:8123"
+                     Margin="0,8,0,0"
+                     KeyDown="UrlBox_KeyDown" />
+
+            <InfoBar x:Name="ErrorBar"
+                     IsOpen="False"
+                     IsClosable="False"
+                     Severity="Error"
+                     Margin="0,2,0,0" />
+
+            <Button x:Name="ConnectButton"
+                    Click="Connect_Click"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,8,0,0"
+                    Height="44"
+                    CornerRadius="8"
+                    Foreground="White"
+                    Background="{StaticResource HaBlueBrush}"
+                    FontWeight="SemiBold">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <ProgressRing x:Name="BusyRing"
+                                  Width="18" Height="18"
+                                  IsActive="False"
+                                  Visibility="Collapsed"
+                                  Foreground="White" />
+                    <TextBlock x:Name="ConnectLabel" Text="Connect" />
+                </StackPanel>
+            </Button>
+
+            <Button Content="Back"
+                    Click="Back_Click"
+                    HorizontalAlignment="Center"
+                    Background="Transparent"
+                    BorderThickness="0" />
+        </StackPanel>
+    </Grid>
+</Page>
