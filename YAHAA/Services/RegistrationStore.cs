@@ -16,7 +16,7 @@ namespace YAHAA.Services
         {
             public string DeviceId { get; set; } = string.Empty;
             public string WebhookId { get; set; } = string.Empty; // DPAPI-encrypted
-            public bool SensorsRegistered { get; set; }
+            public int RegisteredSensorsVersion { get; set; }
         }
 
         private static readonly string Folder =
@@ -26,7 +26,9 @@ namespace YAHAA.Services
 
         public static string DeviceId { get; private set; } = string.Empty;
         public static string? WebhookId { get; private set; }
-        public static bool SensorsRegistered { get; private set; }
+
+        /// <summary>The sensor-set version last registered with Home Assistant (0 = none).</summary>
+        public static int RegisteredSensorsVersion { get; private set; }
 
         /// <summary>True once the device has a webhook (i.e. it is registered with Home Assistant).</summary>
         public static bool IsRegistered => !string.IsNullOrEmpty(WebhookId);
@@ -43,7 +45,7 @@ namespace YAHAA.Services
                         DeviceId = stored.DeviceId;
                         var webhook = string.IsNullOrEmpty(stored.WebhookId) ? null : Dpapi.Unprotect(stored.WebhookId);
                         WebhookId = string.IsNullOrEmpty(webhook) ? null : webhook;
-                        SensorsRegistered = stored.SensorsRegistered;
+                        RegisteredSensorsVersion = stored.RegisteredSensorsVersion;
                     }
                 }
             }
@@ -51,7 +53,7 @@ namespace YAHAA.Services
             {
                 DeviceId = string.Empty;
                 WebhookId = null;
-                SensorsRegistered = false;
+                RegisteredSensorsVersion = 0;
             }
 
             if (string.IsNullOrEmpty(DeviceId))
@@ -64,13 +66,13 @@ namespace YAHAA.Services
         public static void SetWebhook(string webhookId)
         {
             WebhookId = webhookId;
-            SensorsRegistered = false;
+            RegisteredSensorsVersion = 0;
             Save();
         }
 
-        public static void SetSensorsRegistered(bool value)
+        public static void SetSensorsVersion(int version)
         {
-            SensorsRegistered = value;
+            RegisteredSensorsVersion = version;
             Save();
         }
 
@@ -78,7 +80,7 @@ namespace YAHAA.Services
         public static void ClearWebhook()
         {
             WebhookId = null;
-            SensorsRegistered = false;
+            RegisteredSensorsVersion = 0;
             Save();
         }
 
@@ -91,7 +93,7 @@ namespace YAHAA.Services
                 {
                     DeviceId = DeviceId,
                     WebhookId = string.IsNullOrEmpty(WebhookId) ? string.Empty : Dpapi.Protect(WebhookId),
-                    SensorsRegistered = SensorsRegistered,
+                    RegisteredSensorsVersion = RegisteredSensorsVersion,
                 };
                 File.WriteAllText(FilePath, JsonSerializer.Serialize(stored));
             }

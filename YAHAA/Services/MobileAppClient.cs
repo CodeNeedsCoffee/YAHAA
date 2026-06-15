@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -17,6 +18,15 @@ namespace YAHAA.Services
         /// <summary>The webhook no longer exists on the Home Assistant side; re-registration is required.</summary>
         WebhookInvalid,
     }
+
+    /// <summary>Describes a binary sensor reported to Home Assistant.</summary>
+    public sealed record SensorDefinition(string UniqueId, string Name, string OnIcon, string OffIcon)
+    {
+        public string IconFor(bool state) => state ? OnIcon : OffIcon;
+    }
+
+    /// <summary>A single sensor's value for an update.</summary>
+    public readonly record struct SensorReading(string UniqueId, bool State, string Icon);
 
     public sealed class RegistrationResult
     {
@@ -114,40 +124,35 @@ namespace YAHAA.Services
             return PostWebhookAsync(baseUrl, webhookId, payload, ct);
         }
 
-        public static Task<WebhookResult> RegisterActiveSensorAsync(
-            string baseUrl, string webhookId, bool active, CancellationToken ct = default)
+        public static Task<WebhookResult> RegisterSensorAsync(
+            string baseUrl, string webhookId, SensorDefinition def, bool state, CancellationToken ct = default)
         {
             var payload = new
             {
                 type = "register_sensor",
                 data = new
                 {
-                    unique_id = "active",
-                    name = "Active",
+                    unique_id = def.UniqueId,
+                    name = def.Name,
                     type = "binary_sensor",
-                    state = active,
-                    icon = active ? "mdi:monitor" : "mdi:monitor-off",
+                    state,
+                    icon = def.IconFor(state),
                 },
             };
             return PostWebhookAsync(baseUrl, webhookId, payload, ct);
         }
 
-        public static Task<WebhookResult> UpdateActiveSensorAsync(
-            string baseUrl, string webhookId, bool active, CancellationToken ct = default)
+        public static Task<WebhookResult> UpdateSensorStatesAsync(
+            string baseUrl, string webhookId, IReadOnlyList<SensorReading> readings, CancellationToken ct = default)
         {
-            var payload = new
+            var data = new object[readings.Count];
+            for (var i = 0; i < readings.Count; i++)
             {
-                type = "update_sensor_states",
-                data = new object[]
-                {
-                    new
-                    {
-                        unique_id = "active",
-                        state = active,
-                        icon = active ? "mdi:monitor" : "mdi:monitor-off",
-                    },
-                },
-            };
+                var r = readings[i];
+                data[i] = new { unique_id = r.UniqueId, state = r.State, icon = r.Icon };
+            }
+
+            var payload = new { type = "update_sensor_states", data };
             return PostWebhookAsync(baseUrl, webhookId, payload, ct);
         }
 

@@ -1,16 +1,22 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace YAHAA.Services
 {
     /// <summary>
-    /// Background service that keeps Home Assistant updated with this PC's "Active" state. It
-    /// ensures the device + sensor are registered, then reports the active state on change (with a
-    /// periodic heartbeat). Runs while the app is alive — including hidden in the system tray.
+    /// Background service that keeps Home Assistant updated with this PC's status sensors: Active,
+    /// Camera, Microphone, and a combined "Camera or Microphone". Each sensor's change is debounced
+    /// by <see cref="AppSettings.StatusDebounceSeconds"/> in both directions. Runs while the app is
+    /// alive, including hidden in the system tray.
     /// </summary>
     public static class DeviceStatusService
     {
+        // Bump when the set of registered sensors changes so existing installs re-register them.
+        private const int SensorsVersion = 2;
+
         private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan Heartbeat = TimeSpan.FromMinutes(5);
         private static readonly object Gate = new();
@@ -29,6 +35,30 @@ namespace YAHAA.Services
 
         /// <summary>Raised when <see cref="StatusText"/> or <see cref="LastReportedActive"/> changes.</summary>
         public static event Action? StatusChanged;
+
+        private readonly record struct Snapshot(bool Active, bool Camera, bool Microphone);
+
+        private sealed class SensorRuntime
+        {
+            public required SensorDefinition Def { get; init; }
+            public required Func<Snapshot, bool> Select { get; init; }
+            public bool? Reported { get; set; }
+            public bool? Pending { get; set; }
+            public DateTime PendingSince { get; set; }
+        }
+
+        private static List<SensorRuntime> BuildSensors() => new()
+        {
+            new SensorRuntime { Def = new("active", "Active", "mdi:monitor", "mdi:monitor-off"), Select = s => s.Active },
+            new SensorRuntime { Def = new("camera", "Camera", "mdi:webcam", "mdi:webcam-off"), Select = s => s.Camera },
+            new SensorRuntime { Def = new("microphone", "Microphone", "mdi:microphone", "mdi:microphone-off"), Select = s => s.Microphone },
+            new SensorRuntime { Def = new("camera_or_microphone", "Camera or Microphone", "mdi:video", "mdi:video-off"), Select = s => s.Camera || s.Microphone },
+        };
+
+        private static Snapshot Capture() => new(
+            Activity.IsActive(AppSettings.IdleThresholdSeconds),
+            CapabilityUsage.IsCameraInUse(),
+            CapabilityUsage.IsMicrophoneInUse());
 
         /// <summary>Starts reporting if the app is configured and reporting is enabled. No-op otherwise.</summary>
         public static void Start()
@@ -56,7 +86,6 @@ namespace YAHAA.Services
             SetStatus("Not reporting");
         }
 
-        /// <summary>Applies a changed idle threshold or re-start after settings change.</summary>
         public static void Restart()
         {
             Stop();
@@ -68,16 +97,14 @@ namespace YAHAA.Services
 
         private static async Task RunAsync(CancellationToken ct)
         {
-            bool? reported = null;             // the state Home Assistant currently believes
-            bool? pending = null;             // a flipped state waiting out the debounce window
-            var pendingSince = DateTime.MinValue;
+            var sensors = BuildSensors();
             var lastSendUtc = DateTime.MinValue;
 
             try
             {
                 while (!ct.IsCancellationRequested)
                 {
-                    if (await EnsureRegisteredAsync(ct).ConfigureAwait(false))
+                    if (await EnsureRegisteredAsync(sensors, ct).ConfigureAwait(false))
                     {
                         if (_registrationRefreshRequested)
                         {
@@ -88,8 +115,7 @@ namespace YAHAA.Services
                             if (refresh == WebhookResult.WebhookInvalid)
                             {
                                 RegistrationStore.ClearWebhook();
-                                reported = null;
-                                pending = null;
+                                ResetReported(sensors);
                             }
                             else if (refresh == WebhookResult.Ok)
                             {
@@ -97,54 +123,76 @@ namespace YAHAA.Services
                             }
                         }
 
-                        var raw = Activity.IsActive(AppSettings.IdleThresholdSeconds);
                         var now = DateTime.UtcNow;
                         var debounce = TimeSpan.FromSeconds(AppSettings.StatusDebounceSeconds);
+                        var snapshot = Capture();
+                        var heartbeatDue = now - lastSendUtc >= Heartbeat;
 
-                        if (reported is null)
+                        // Decide which sensors to send: a new baseline, a debounced change, or a heartbeat.
+                        var sends = new List<(SensorRuntime Sensor, bool State)>();
+                        foreach (var s in sensors)
                         {
-                            // Establish the baseline immediately on (re)start.
-                            if (await SendAsync(raw, ct).ConfigureAwait(false))
+                            var raw = s.Select(snapshot);
+                            if (s.Reported is null)
                             {
-                                reported = raw;
-                                lastSendUtc = now;
-                                pending = null;
+                                sends.Add((s, raw));
                             }
-                        }
-                        else if (raw != reported)
-                        {
-                            // State differs from what HA knows — only report once it holds steady
-                            // for the debounce window (covers both active→inactive and back).
-                            if (pending != raw)
+                            else if (raw != s.Reported)
                             {
-                                pending = raw;
-                                pendingSince = now;
-                                SetStatus(raw ? "Confirming active…" : "Confirming inactive…");
-                            }
-                            else if (now - pendingSince >= debounce)
-                            {
-                                if (await SendAsync(raw, ct).ConfigureAwait(false))
+                                if (s.Pending != raw)
                                 {
-                                    reported = raw;
-                                    lastSendUtc = now;
-                                    pending = null;
+                                    s.Pending = raw;
+                                    s.PendingSince = now;
+                                }
+                                else if (now - s.PendingSince >= debounce)
+                                {
+                                    sends.Add((s, raw));
                                 }
                             }
-                        }
-                        else
-                        {
-                            // Raw matches what we reported — cancel any half-finished flip…
-                            if (pending is not null)
+                            else
                             {
-                                pending = null;
-                                SetStatus(reported.Value ? "Reporting • Active" : "Reporting • Inactive");
+                                s.Pending = null; // raw matches reported; cancel any pending flip
                             }
+                        }
 
-                            // …and keep the entity fresh with a periodic heartbeat.
-                            if (now - lastSendUtc >= Heartbeat)
+                        if (heartbeatDue)
+                        {
+                            foreach (var s in sensors)
                             {
-                                if (await SendAsync(reported.Value, ct).ConfigureAwait(false))
+                                if (s.Reported is bool reported && sends.All(x => x.Sensor != s))
+                                    sends.Add((s, reported));
+                            }
+                        }
+
+                        if (sends.Count > 0)
+                        {
+                            var readings = sends
+                                .Select(x => new SensorReading(x.Sensor.Def.UniqueId, x.State, x.Sensor.Def.IconFor(x.State)))
+                                .ToList();
+
+                            var result = await MobileAppClient
+                                .UpdateSensorStatesAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, readings, ct)
+                                .ConfigureAwait(false);
+
+                            switch (result)
+                            {
+                                case WebhookResult.Ok:
+                                    foreach (var (sensor, state) in sends)
+                                    {
+                                        sensor.Reported = state;
+                                        sensor.Pending = null;
+                                    }
                                     lastSendUtc = now;
+                                    UpdateStatus(sensors);
+                                    break;
+                                case WebhookResult.WebhookInvalid:
+                                    RegistrationStore.ClearWebhook();
+                                    ResetReported(sensors);
+                                    SetStatus("Re-registering…");
+                                    break;
+                                default:
+                                    SetStatus("Couldn't reach Home Assistant");
+                                    break;
                             }
                         }
                     }
@@ -158,29 +206,7 @@ namespace YAHAA.Services
             }
         }
 
-        private static async Task<bool> SendAsync(bool active, CancellationToken ct)
-        {
-            var result = await MobileAppClient
-                .UpdateActiveSensorAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, active, ct)
-                .ConfigureAwait(false);
-
-            switch (result)
-            {
-                case WebhookResult.Ok:
-                    LastReportedActive = active;
-                    SetStatus(active ? "Reporting • Active" : "Reporting • Inactive");
-                    return true;
-                case WebhookResult.WebhookInvalid:
-                    RegistrationStore.ClearWebhook();
-                    SetStatus("Re-registering…");
-                    return false;
-                default:
-                    SetStatus("Couldn't reach Home Assistant");
-                    return false;
-            }
-        }
-
-        private static async Task<bool> EnsureRegisteredAsync(CancellationToken ct)
+        private static async Task<bool> EnsureRegisteredAsync(IReadOnlyList<SensorRuntime> sensors, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(RegistrationStore.WebhookId))
             {
@@ -198,29 +224,48 @@ namespace YAHAA.Services
                 RegistrationStore.SetWebhook(registration.WebhookId);
             }
 
-            if (!RegistrationStore.SensorsRegistered)
+            if (RegistrationStore.RegisteredSensorsVersion != SensorsVersion)
             {
-                var active = Activity.IsActive(AppSettings.IdleThresholdSeconds);
-                var result = await MobileAppClient
-                    .RegisterActiveSensorAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, active, ct)
-                    .ConfigureAwait(false);
-
-                if (result == WebhookResult.WebhookInvalid)
+                var snapshot = Capture();
+                foreach (var s in sensors)
                 {
-                    RegistrationStore.ClearWebhook();
-                    return false;
+                    var result = await MobileAppClient
+                        .RegisterSensorAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, s.Def, s.Select(snapshot), ct)
+                        .ConfigureAwait(false);
+
+                    if (result == WebhookResult.WebhookInvalid)
+                    {
+                        RegistrationStore.ClearWebhook();
+                        return false;
+                    }
+
+                    if (result != WebhookResult.Ok)
+                    {
+                        SetStatus("Couldn't register sensors");
+                        return false;
+                    }
                 }
 
-                if (result != WebhookResult.Ok)
-                {
-                    SetStatus("Couldn't register the Active sensor");
-                    return false;
-                }
-
-                RegistrationStore.SetSensorsRegistered(true);
+                RegistrationStore.SetSensorsVersion(SensorsVersion);
             }
 
             return true;
+        }
+
+        private static void ResetReported(IEnumerable<SensorRuntime> sensors)
+        {
+            foreach (var s in sensors)
+            {
+                s.Reported = null;
+                s.Pending = null;
+            }
+        }
+
+        private static void UpdateStatus(IEnumerable<SensorRuntime> sensors)
+        {
+            var active = sensors.First(s => s.Def.UniqueId == "active").Reported;
+            LastReportedActive = active;
+            SetStatus(active == true ? "Reporting • Active" : "Reporting • Inactive");
         }
 
         private static void SetStatus(string text)
