@@ -125,6 +125,30 @@ namespace YAHAA.Services
             return PostWebhookAsync(baseUrl, webhookId, payload, ct);
         }
 
+        /// <summary>
+        /// Registers or updates a script as a <c>button</c> entity on the YAHAA device in Home
+        /// Assistant. Enabled buttons appear in the device's Controls section; disabled ones are
+        /// hidden but remain registered so they can be re-enabled later.
+        /// </summary>
+        public static Task<WebhookResult> RegisterScriptButtonAsync(
+            string baseUrl, string webhookId, string uniqueId, string name, bool disabled = false,
+            CancellationToken ct = default)
+        {
+            var payload = new
+            {
+                type = "register_sensor",
+                data = new
+                {
+                    unique_id = uniqueId,
+                    name,
+                    type = "button",
+                    icon = "mdi:script-text-play",
+                    disabled,
+                },
+            };
+            return PostWebhookAsync(baseUrl, webhookId, payload, ct);
+        }
+
         public static Task<WebhookResult> RegisterSensorAsync(
             string baseUrl, string webhookId, SensorDefinition def, bool state, bool disabled = false,
             CancellationToken ct = default)

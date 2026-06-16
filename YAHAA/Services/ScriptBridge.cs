@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,19 +10,21 @@ using YAHAA.Scripts;
 namespace YAHAA.Services
 {
     /// <summary>
-    /// Bridges the local scripts folder to Home Assistant: over a WebSocket connection it creates an
-    /// input_button helper per script, listens for presses, and runs the matching script. Buttons
-    /// for scripts that no longer exist are removed. Requires the configured token to be an admin.
+    /// Bridges the local scripts folder to Home Assistant: registers each enabled script as a
+    /// <c>button</c> entity on the YAHAA device (via the mobile_app webhook) so they appear in
+    /// the device's Controls section, then listens for presses over WebSocket and runs the script.
     /// </summary>
     public static class ScriptBridge
     {
-        private const string HelperPrefix = "YAHAA: ";
+        private const string UniqueIdPrefix = "yahaa_script_";
+        private const string ButtonNamePrefix = "YAHAA: ";
         private static readonly TimeSpan ResyncInterval = TimeSpan.FromSeconds(30);
         private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan RegistrationPollDelay = TimeSpan.FromSeconds(5);
         private static readonly object Gate = new();
 
-        // Maps a helper's friendly name -> the script's full path.
-        private static readonly ConcurrentDictionary<string, string> NameToScript = new();
+        // Maps HA entity_id → local script full path.
+        private static readonly ConcurrentDictionary<string, string> EntityToScript = new();
 
         private static CancellationTokenSource? _cts;
         private static Task? _loop;
@@ -52,7 +54,7 @@ namespace YAHAA.Services
                 _cts = null;
             }
 
-            NameToScript.Clear();
+            EntityToScript.Clear();
             SetStatus("Off");
         }
 
@@ -66,6 +68,15 @@ namespace YAHAA.Services
         {
             while (!ct.IsCancellationRequested)
             {
+                // Device must be registered (webhook may not exist yet on first run).
+                if (!RegistrationStore.IsRegistered)
+                {
+                    SetStatus("Waiting for device registration…");
+                    try { await Task.Delay(RegistrationPollDelay, ct).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { break; }
+                    continue;
+                }
+
                 try
                 {
                     using var client = new HaWebSocketClient();
@@ -73,97 +84,106 @@ namespace YAHAA.Services
                     await client.ConnectAndAuthAsync(ConfigStore.ServerUrl, ConfigStore.Token, ct).ConfigureAwait(false);
                     client.OnEvent(OnHaEvent);
 
-                    await SyncHelpersAsync(client, ct).ConfigureAwait(false);
+                    await SyncAsync(client, ct).ConfigureAwait(false);
                     await client.SendCommandAsync(
                         new() { ["type"] = "subscribe_events", ["event_type"] = "state_changed" }, ct).ConfigureAwait(false);
-                    SetStatus($"Connected • {NameToScript.Count} button(s)");
+
+                    SetStatus($"Connected • {EntityToScript.Count} button(s)");
 
                     while (!ct.IsCancellationRequested && client.IsOpen)
                     {
                         await Task.Delay(ResyncInterval, ct).ConfigureAwait(false);
-                        await SyncHelpersAsync(client, ct).ConfigureAwait(false);
+                        await SyncAsync(client, ct).ConfigureAwait(false);
+                        SetStatus($"Connected • {EntityToScript.Count} button(s)");
                     }
                 }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    SetStatus($"Disconnected: {ex.Message}");
-                }
+                catch (OperationCanceledException) { break; }
+                catch (Exception ex) { SetStatus($"Disconnected: {ex.Message}"); }
 
-                try
-                {
-                    await Task.Delay(ReconnectDelay, ct).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
+                try { await Task.Delay(ReconnectDelay, ct).ConfigureAwait(false); }
+                catch (OperationCanceledException) { break; }
             }
 
             SetStatus("Off");
         }
 
-        private static async Task SyncHelpersAsync(HaWebSocketClient client, CancellationToken ct)
+        private static async Task SyncAsync(HaWebSocketClient client, CancellationToken ct)
         {
-            // Only scripts the user has left enabled get an HA button.
-            var scripts = ScriptCatalog.Enumerate(AppSettings.ScriptsFolder)
-                .Where(s => AppSettings.IsScriptEnabled(s.Name))
-                .ToList();
+            var baseUrl = ConfigStore.ServerUrl;
+            var webhookId = RegistrationStore.WebhookId!;
 
-            // Existing input_button helpers, keyed by friendly name -> storage id.
-            var existing = new Dictionary<string, string>(StringComparer.Ordinal);
-            var list = await client.SendCommandAsync(new() { ["type"] = "input_button/list" }, ct).ConfigureAwait(false);
-            foreach (var item in list.EnumerateArray())
-            {
-                var name = item.TryGetProperty("name", out var n) ? n.GetString() : null;
-                var id = item.TryGetProperty("id", out var i) ? i.GetString() : null;
-                if (name is not null && id is not null) existing[name] = id;
-            }
-
-            var desired = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var s in scripts) desired.Add(HelperPrefix + s.Name);
-
-            // Create buttons for new scripts.
+            // Build slug → script map for all files currently in the folder.
+            var scripts = ScriptCatalog.Enumerate(AppSettings.ScriptsFolder);
+            var currentBySlug = new Dictionary<string, ScriptItem>(StringComparer.Ordinal);
             foreach (var s in scripts)
             {
-                var helperName = HelperPrefix + s.Name;
-                if (!existing.ContainsKey(helperName))
+                var slug = Slugify(s.Name);
+                if (!string.IsNullOrEmpty(slug) && !currentBySlug.ContainsKey(slug))
+                    currentBySlug[slug] = s;
+            }
+
+            // Register / update each script as a button on the YAHAA device via the mobile_app
+            // webhook. Disabled scripts stay registered but hidden in HA.
+            foreach (var kvp in currentBySlug)
+            {
+                var enabled = AppSettings.IsScriptEnabled(kvp.Value.Name);
+                var result = await MobileAppClient.RegisterScriptButtonAsync(
+                    baseUrl, webhookId,
+                    UniqueIdPrefix + kvp.Key,
+                    ButtonNamePrefix + kvp.Value.Name,
+                    disabled: !enabled,
+                    ct: ct).ConfigureAwait(false);
+
+                if (result == WebhookResult.WebhookInvalid)
                 {
-                    await client.SendCommandAsync(new()
-                    {
-                        ["type"] = "input_button/create",
-                        ["name"] = helperName,
-                        ["icon"] = "mdi:script-text-play",
-                    }, ct).ConfigureAwait(false);
+                    RegistrationStore.ClearWebhook();
+                    return;
                 }
             }
 
-            // Remove our buttons whose script is gone.
-            foreach (var kv in existing)
+            // Query HA's entity registry to get the entity_id for each registered button and
+            // to disable any orphaned buttons (scripts deleted since last run).
+            EntityToScript.Clear();
+            try
             {
-                if (kv.Key.StartsWith(HelperPrefix, StringComparison.Ordinal) && !desired.Contains(kv.Key))
+                var haPrefix = $"mobile_app_{webhookId}_{UniqueIdPrefix}";
+                var entities = await client.SendCommandAsync(
+                    new() { ["type"] = "entity_registry/list" }, ct).ConfigureAwait(false);
+
+                foreach (var entry in entities.EnumerateArray())
                 {
-                    try
+                    var entityId = entry.TryGetProperty("entity_id", out var eid) ? eid.GetString() : null;
+                    var uniqueId = entry.TryGetProperty("unique_id", out var uid) ? uid.GetString() : null;
+                    if (entityId is null || uniqueId is null) continue;
+                    if (!entityId.StartsWith("button.", StringComparison.Ordinal)) continue;
+                    if (!uniqueId.StartsWith(haPrefix, StringComparison.Ordinal)) continue;
+
+                    var slug = uniqueId[haPrefix.Length..];
+
+                    if (currentBySlug.TryGetValue(slug, out var script))
                     {
-                        await client.SendCommandAsync(new()
+                        if (AppSettings.IsScriptEnabled(script.Name))
+                            EntityToScript[entityId] = script.FullPath;
+                    }
+                    else
+                    {
+                        // Script file is gone — disable the orphaned button in HA.
+                        var name = (entry.TryGetProperty("original_name", out var on) ? on.GetString() : null)
+                                   ?? ButtonNamePrefix + slug;
+                        try
                         {
-                            ["type"] = "input_button/delete",
-                            ["input_button_id"] = kv.Value,
-                        }, ct).ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                        // best effort
+                            await MobileAppClient.RegisterScriptButtonAsync(
+                                baseUrl, webhookId, UniqueIdPrefix + slug, name,
+                                disabled: true, ct: ct).ConfigureAwait(false);
+                        }
+                        catch { }
                     }
                 }
             }
-
-            NameToScript.Clear();
-            foreach (var s in scripts)
-                NameToScript[HelperPrefix + s.Name] = s.FullPath;
+            catch
+            {
+                // entity_registry/list is best-effort; EntityToScript stays empty until next sync.
+            }
         }
 
         private static void OnHaEvent(JsonElement ev)
@@ -174,25 +194,34 @@ namespace YAHAA.Services
                 if (!ev.TryGetProperty("data", out var data)) return;
 
                 var entityId = data.TryGetProperty("entity_id", out var eid) ? eid.GetString() : null;
-                if (entityId is null || !entityId.StartsWith("input_button.", StringComparison.Ordinal)) return;
+                if (entityId is null || !entityId.StartsWith("button.", StringComparison.Ordinal)) return;
+                if (!EntityToScript.ContainsKey(entityId)) return;
 
                 if (!data.TryGetProperty("new_state", out var ns) || ns.ValueKind != JsonValueKind.Object) return;
 
                 var state = ns.TryGetProperty("state", out var st) ? st.GetString() : null;
-                if (string.IsNullOrEmpty(state) || state == "unknown" || state == "unavailable") return; // not a press
+                if (string.IsNullOrEmpty(state) || state == "unknown" || state == "unavailable") return;
 
-                var friendlyName = ns.TryGetProperty("attributes", out var attrs)
-                    && attrs.TryGetProperty("friendly_name", out var fn)
-                    ? fn.GetString()
-                    : null;
-
-                if (friendlyName is not null && NameToScript.TryGetValue(friendlyName, out var path))
+                if (EntityToScript.TryGetValue(entityId, out var path))
                     ScriptRunner.Run(path);
             }
-            catch
+            catch { }
+        }
+
+        // Mirrors HA's slugify: lowercase, non-alphanumeric chars → single underscore, trim ends.
+        private static string Slugify(string name)
+        {
+            var sb = new StringBuilder(name.Length);
+            foreach (var c in name.ToLowerInvariant())
             {
-                // Ignore malformed events.
+                if (char.IsLetterOrDigit(c))
+                    sb.Append(c);
+                else if (sb.Length > 0 && sb[sb.Length - 1] != '_')
+                    sb.Append('_');
             }
+            while (sb.Length > 0 && sb[sb.Length - 1] == '_')
+                sb.Length--;
+            return sb.ToString();
         }
 
         private static void SetStatus(string text)
