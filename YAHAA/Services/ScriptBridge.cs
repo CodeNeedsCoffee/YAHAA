@@ -72,8 +72,25 @@ namespace YAHAA.Services
 
         public static void Restart()
         {
-            Stop();
-            Start();
+            // Capture the running loop before cancelling so we can schedule Start() as a
+            // continuation. Calling Start() immediately after Stop() races with the cooperative
+            // cancellation: the loop task may not have completed yet, so Start()'s IsCompleted
+            // guard would bail out and the bridge would never reconnect.
+            Task? oldLoop;
+            lock (Gate)
+            {
+                oldLoop = _loop;
+                _cts?.Cancel();
+                _cts = null;
+            }
+
+            NameToScript.Clear();
+            SetStatus("Off");
+
+            if (oldLoop is null || oldLoop.IsCompleted)
+                Start();
+            else
+                _ = oldLoop.ContinueWith(_ => Start(), TaskScheduler.Default);
         }
 
         private static async Task RunAsync(CancellationToken ct)
