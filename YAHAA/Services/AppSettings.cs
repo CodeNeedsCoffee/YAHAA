@@ -25,6 +25,7 @@ namespace YAHAA.Services
         private sealed class Stored
         {
             public string Logo { get; set; } = nameof(AppLogo.Ha);
+            public bool LaunchOnStartup { get; set; } = false;
             public bool ReportingEnabled { get; set; } = true;
             public int IdleThresholdSeconds { get; set; } = 300;
             public int StatusDebounceSeconds { get; set; } = 5;
@@ -184,6 +185,7 @@ namespace YAHAA.Services
                 _pinnedSensors = new HashSet<string>(stored.PinnedSensors ?? new(), StringComparer.Ordinal);
                 _pinnedScripts = new HashSet<string>(stored.PinnedScripts ?? new(), StringComparer.OrdinalIgnoreCase);
                 _dashboardActions = stored.DashboardActions ?? new();
+                LaunchOnStartup = stored.LaunchOnStartup;
             }
             catch
             {
@@ -200,7 +202,15 @@ namespace YAHAA.Services
                 _pinnedSensors = new HashSet<string>(StringComparer.Ordinal);
                 _pinnedScripts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 _dashboardActions = new();
+                LaunchOnStartup = false;
             }
+        }
+
+        public static void SetLaunchOnStartup(bool enabled)
+        {
+            if (LaunchOnStartup == enabled) return;
+            LaunchOnStartup = enabled;
+            Save();
         }
 
         /// <summary>Turns location reporting on/off. Permission is gated by the caller (UI).</summary>
@@ -291,6 +301,9 @@ namespace YAHAA.Services
 
         public static string CurrentLogoIconPath => LogoIconPath(Logo);
 
+        /// <summary>Whether the app should attempt to launch on Windows sign-in.</summary>
+        public static bool LaunchOnStartup { get; private set; } = false;
+
         private static void Save()
         {
             try
@@ -299,6 +312,7 @@ namespace YAHAA.Services
                 File.WriteAllText(FilePath, JsonSerializer.Serialize(new Stored
                 {
                     Logo = Logo.ToString(),
+                    LaunchOnStartup = LaunchOnStartup,
                     ReportingEnabled = ReportingEnabled,
                     IdleThresholdSeconds = IdleThresholdSeconds,
                     StatusDebounceSeconds = StatusDebounceSeconds,

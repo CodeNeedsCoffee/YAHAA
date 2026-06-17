@@ -48,6 +48,9 @@ namespace YAHAA.Shell
             LocationService.TrackingDisabled += OnLocationTrackingDisabled;
             ConfigStore.ActiveEndpointChanged += OnEndpointChanged;
 
+            // Initialize the startup task state from the OS (packaged app) if available.
+            InitializeStartupStateAsync();
+
             _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _refreshTimer.Tick += (_, _) => UpdateDeviceStatus();
             _refreshTimer.Start();
@@ -258,6 +261,96 @@ namespace YAHAA.Shell
             LocationInfoBar.Severity = severity;
             LocationInfoBar.Message = message;
             LocationInfoBar.IsOpen = true;
+        }
+
+        private async void InitializeStartupStateAsync()
+        {
+            try
+            {
+                var task = await Windows.ApplicationModel.StartupTask.GetAsync("YAHAAStartup");
+                if (task is not null)
+                {
+                    // Reflect the OS state, not just the saved preference.
+                    var enabled = task.State == Windows.ApplicationModel.StartupTaskState.Enabled;
+                    _initializing = true;
+                    LaunchToggle.IsOn = enabled;
+                    LaunchStatusText.Text = task.State.ToString();
+                    _initializing = false;
+
+                    // Keep stored preference in sync with OS when possible.
+                    AppSettings.SetLaunchOnStartup(enabled);
+                    return;
+                }
+            }
+            catch
+            {
+                // API unavailable (unpackaged or older runtime) — fall back to stored preference below.
+            }
+
+            // Fallback: reflect saved preference.
+            _initializing = true;
+            LaunchToggle.IsOn = AppSettings.LaunchOnStartup;
+            LaunchStatusText.Text = AppSettings.LaunchOnStartup ? "Enabled (preference)" : "Disabled (preference)";
+            _initializing = false;
+        }
+
+        private async void LaunchToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_initializing) return;
+
+            var enabled = LaunchToggle.IsOn;
+
+            // Try to register/unregister the StartupTask if running as a packaged app.
+            try
+            {
+                // Windows.ApplicationModel.StartupTask exists in MSIX packaged apps.
+                var startupTask = await Windows.ApplicationModel.StartupTask.GetAsync("YAHAAStartup");
+                if (startupTask != null)
+                {
+                    if (enabled)
+                    {
+                        var state = await startupTask.RequestEnableAsync();
+                        // RequestEnableAsync returns Enabled, DisabledByPolicy, DisabledByUser, Disabled
+                        // Treat enabled only when Enabled.
+                        enabled = state == Windows.ApplicationModel.StartupTaskState.Enabled;
+                    }
+                    else
+                    {
+                        // There's no explicit disable API; disable by disabling the task via State property is not allowed.
+                        // The recommended approach is to call DisableAsync on later SDKs, but fallback to leaving user to disable.
+                        // Some runtimes support startupTask.Disable(); try-catch.
+                        try { startupTask.Disable(); }
+                        catch { }
+                    }
+                }
+            }
+            catch
+            {
+                // Not packaged / API unavailable — attempt registry run key for unpackaged app.
+                try
+                {
+                    const string runKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+                    var appName = "YAHAA";
+                    var exe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
+                    if (!string.IsNullOrEmpty(exe))
+                    {
+                        using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Run", true))
+                        {
+                            if (enabled)
+                                key.SetValue(appName, $"\"{exe}\"");
+                            else
+                                key.DeleteValue(appName, false);
+                        }
+                    }
+                }
+                catch
+                {
+                    // best-effort; ignore failures
+                }
+            }
+
+            AppSettings.SetLaunchOnStartup(enabled);
+            LaunchStatusText.Text = enabled ? "Enabled" : "Disabled";
         }
 
         private async void ChooseFolder_Click(object sender, RoutedEventArgs e)

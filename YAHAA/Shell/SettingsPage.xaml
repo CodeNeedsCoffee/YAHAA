@@ -65,6 +65,11 @@
                 <StackPanel Spacing="14">
                     <TextBlock Text="Device" FontSize="18" FontWeight="SemiBold" />
 
+
+                    <TextBox x:Name="DeviceNameBox"
+                             Header="Device name"
+                             PlaceholderText="Name shown in Home Assistant"
+                             LostFocus="DeviceNameBox_LostFocus" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -81,16 +86,21 @@
                                       Toggled="ReportToggle_Toggled" />
                     </Grid>
 
-                    <TextBox x:Name="DeviceNameBox"
-                             Header="Device name"
-                             PlaceholderText="Name shown in Home Assistant"
-                             LostFocus="DeviceNameBox_LostFocus" />
-
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="App version:"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock x:Name="AppVersionText" />
-                    </StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Launch app on Windows sign-in" />
+                            <TextBlock x:Name="LaunchStatusText"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="LaunchToggle"
+                                      Grid.Column="1"
+                                      Toggled="LaunchToggle_Toggled" />
+                    </Grid>
 
                     <NumberBox x:Name="IdleBox"
                                Header="Report inactive after (minutes of no input)"
@@ -118,6 +128,58 @@
                     <TextBlock x:Name="ActiveNowText"
                                FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="App version:"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="AppVersionText" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Scripts card -->
+            <Border CornerRadius="12"
+        Padding="24"
+        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Scripts" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Text="Expose a folder of .ps1 / .bat scripts as buttons in Home Assistant."
+                   TextWrapping="Wrap"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Enable scripts" VerticalAlignment="Center" />
+                        <ToggleSwitch x:Name="ScriptsToggle"
+                          Grid.Column="1"
+                          Toggled="ScriptsToggle_Toggled" />
+                    </Grid>
+
+                    <StackPanel x:Name="ScriptsFolderPanel" Spacing="6">
+                        <TextBlock Text="Scripts folder"
+                       FontSize="12"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="ScriptsFolderText"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           IsTextSelectionEnabled="True" />
+                            <Button x:Name="ChooseFolderButton"
+                        Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Content="Choose folder…"
+                        Click="ChooseFolder_Click" />
+                        </Grid>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
@@ -185,52 +247,6 @@
                             </StackPanel>
                         </RadioButton>
                     </RadioButtons>
-                </StackPanel>
-            </Border>
-
-            <!-- Scripts card -->
-            <Border CornerRadius="12"
-                    Padding="24"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1">
-                <StackPanel Spacing="14">
-                    <TextBlock Text="Scripts" FontSize="18" FontWeight="SemiBold" />
-                    <TextBlock Text="Expose a folder of .ps1 / .bat scripts as buttons in Home Assistant."
-                               TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Enable scripts" VerticalAlignment="Center" />
-                        <ToggleSwitch x:Name="ScriptsToggle"
-                                      Grid.Column="1"
-                                      Toggled="ScriptsToggle_Toggled" />
-                    </Grid>
-
-                    <StackPanel x:Name="ScriptsFolderPanel" Spacing="6">
-                        <TextBlock Text="Scripts folder"
-                                   FontSize="12"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="ScriptsFolderText"
-                                       VerticalAlignment="Center"
-                                       TextWrapping="Wrap"
-                                       IsTextSelectionEnabled="True" />
-                            <Button x:Name="ChooseFolderButton"
-                                    Grid.Column="1"
-                                    Margin="12,0,0,0"
-                                    Content="Choose folder…"
-                                    Click="ChooseFolder_Click" />
-                        </Grid>
-                    </StackPanel>
                 </StackPanel>
             </Border>
 
