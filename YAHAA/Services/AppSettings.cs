@@ -34,6 +34,9 @@ namespace YAHAA.Services
             public bool LocationTrackingEnabled { get; set; }
             public List<string> DisabledSensors { get; set; } = new();
             public List<string> DisabledScripts { get; set; } = new();
+            public List<string> PinnedSensors { get; set; } = new();
+            public List<string> PinnedScripts { get; set; } = new();
+            public List<DashboardAction> DashboardActions { get; set; } = new();
         }
 
         public const int MinDebounceSeconds = 3;
@@ -115,6 +118,52 @@ namespace YAHAA.Services
             ScriptsChanged?.Invoke();
         }
 
+        // ---- YAHAA dashboard (pinned sensors/scripts + webhook actions) ----
+
+        /// <summary>Raised when a dashboard pin or action changes, so the dashboard can refresh.</summary>
+        public static event Action? DashboardChanged;
+
+        private static HashSet<string> _pinnedSensors = new(StringComparer.Ordinal);
+        private static HashSet<string> _pinnedScripts = new(StringComparer.OrdinalIgnoreCase);
+        private static List<DashboardAction> _dashboardActions = new();
+
+        public static bool IsSensorPinned(string sensorId) => _pinnedSensors.Contains(sensorId);
+
+        public static void SetSensorPinned(string sensorId, bool pinned)
+        {
+            var changed = pinned ? _pinnedSensors.Add(sensorId) : _pinnedSensors.Remove(sensorId);
+            if (!changed) return;
+            Save();
+            DashboardChanged?.Invoke();
+        }
+
+        public static bool IsScriptPinned(string scriptName) => _pinnedScripts.Contains(scriptName);
+
+        public static void SetScriptPinned(string scriptName, bool pinned)
+        {
+            var changed = pinned ? _pinnedScripts.Add(scriptName) : _pinnedScripts.Remove(scriptName);
+            if (!changed) return;
+            Save();
+            DashboardChanged?.Invoke();
+        }
+
+        /// <summary>The user-defined webhook actions shown on the dashboard.</summary>
+        public static IReadOnlyList<DashboardAction> DashboardActions => _dashboardActions;
+
+        public static void AddDashboardAction(DashboardAction action)
+        {
+            _dashboardActions.Add(action);
+            Save();
+            DashboardChanged?.Invoke();
+        }
+
+        public static void RemoveDashboardAction(DashboardAction action)
+        {
+            if (!_dashboardActions.Remove(action)) return;
+            Save();
+            DashboardChanged?.Invoke();
+        }
+
         public static void Load()
         {
             try
@@ -132,6 +181,9 @@ namespace YAHAA.Services
                 LocationTrackingEnabled = stored.LocationTrackingEnabled;
                 _disabledSensors = new HashSet<string>(stored.DisabledSensors ?? new(), StringComparer.Ordinal);
                 _disabledScripts = new HashSet<string>(stored.DisabledScripts ?? new(), StringComparer.OrdinalIgnoreCase);
+                _pinnedSensors = new HashSet<string>(stored.PinnedSensors ?? new(), StringComparer.Ordinal);
+                _pinnedScripts = new HashSet<string>(stored.PinnedScripts ?? new(), StringComparer.OrdinalIgnoreCase);
+                _dashboardActions = stored.DashboardActions ?? new();
             }
             catch
             {
@@ -145,6 +197,9 @@ namespace YAHAA.Services
                 LocationTrackingEnabled = false;
                 _disabledSensors = new HashSet<string>(StringComparer.Ordinal);
                 _disabledScripts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                _pinnedSensors = new HashSet<string>(StringComparer.Ordinal);
+                _pinnedScripts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                _dashboardActions = new();
             }
         }
 
@@ -253,6 +308,9 @@ namespace YAHAA.Services
                     LocationTrackingEnabled = LocationTrackingEnabled,
                     DisabledSensors = _disabledSensors.ToList(),
                     DisabledScripts = _disabledScripts.ToList(),
+                    PinnedSensors = _pinnedSensors.ToList(),
+                    PinnedScripts = _pinnedScripts.ToList(),
+                    DashboardActions = _dashboardActions,
                 }));
             }
             catch

@@ -26,18 +26,26 @@
         <ListView x:Name="SensorsList" Grid.Row="2" SelectionMode="None" IsItemClickEnabled="True">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="local:SensorRow">
-                    <Grid Padding="0,10">
+                    <Grid Padding="0,10" ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
+                        <ToggleButton Grid.Column="0"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{x:Bind Pinned, Mode=TwoWay}"
+                                      Click="SensorPin_Click"
+                                      ToolTipService.ToolTip="Pin to dashboard">
+                            <FontIcon Glyph="&#xE718;" FontSize="14" />
+                        </ToggleButton>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="{x:Bind DisplayName}" FontWeight="SemiBold" />
                             <TextBlock Text="{x:Bind CurrentValue, Mode=OneWay}"
                                        FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
-                        <ToggleSwitch Grid.Column="1"
+                        <ToggleSwitch Grid.Column="2"
                                       IsOn="{x:Bind Enabled, Mode=TwoWay}"
                                       Toggled="Sensor_Toggled" />
                     </Grid>

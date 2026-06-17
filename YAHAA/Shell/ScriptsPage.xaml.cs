@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using YAHAA.Scripts;
 using YAHAA.Services;
 
@@ -14,6 +15,7 @@ namespace YAHAA.Shell
         public required string Kind { get; init; }
         public required string FullPath { get; init; }
         public bool Enabled { get; set; }
+        public bool Pinned { get; set; }
     }
 
     /// <summary>
@@ -42,6 +44,7 @@ namespace YAHAA.Shell
                     Kind = s.Kind,
                     FullPath = s.FullPath,
                     Enabled = AppSettings.IsScriptEnabled(s.Name),
+                    Pinned = AppSettings.IsScriptPinned(s.Name),
                 })
                 .ToList();
 
@@ -70,6 +73,13 @@ namespace YAHAA.Shell
             // initial bind (matching saved state) is a no-op.
             if (sender is ToggleSwitch { DataContext: ScriptRow row } toggle)
                 AppSettings.SetScriptEnabled(row.Name, toggle.IsOn);
+        }
+
+        private void ScriptPin_Click(object sender, RoutedEventArgs e)
+        {
+            // Read IsChecked from the control (set before Click fires), not the stale bound value.
+            if (sender is ToggleButton { DataContext: ScriptRow row } button)
+                AppSettings.SetScriptPinned(row.Name, button.IsChecked == true);
         }
     }
 }

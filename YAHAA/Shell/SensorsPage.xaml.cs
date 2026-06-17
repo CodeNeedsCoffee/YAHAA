@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using YAHAA.Services;
 
 namespace YAHAA.Shell
@@ -16,6 +17,7 @@ namespace YAHAA.Shell
         public required Func<bool> Read { get; init; }
 
         public bool Enabled { get; set; }
+        public bool Pinned { get; set; }
 
         private string _currentValue = string.Empty;
         public string CurrentValue
@@ -48,6 +50,7 @@ namespace YAHAA.Shell
                 DisplayName = s.DisplayName,
                 Read = s.Read,
                 Enabled = AppSettings.IsSensorEnabled(s.Id),
+                Pinned = AppSettings.IsSensorPinned(s.Id),
             }).ToList();
 
             RefreshValues();
@@ -73,6 +76,13 @@ namespace YAHAA.Shell
             // initial bind (matching saved state) is a no-op.
             if (sender is ToggleSwitch { DataContext: SensorRow row } toggle)
                 AppSettings.SetSensorEnabled(row.Id, toggle.IsOn);
+        }
+
+        private void SensorPin_Click(object sender, RoutedEventArgs e)
+        {
+            // Read IsChecked from the control (set before Click fires), not the stale bound value.
+            if (sender is ToggleButton { DataContext: SensorRow row } button)
+                AppSettings.SetSensorPinned(row.Id, button.IsChecked == true);
         }
     }
 }

@@ -40,21 +40,29 @@
                 <DataTemplate x:DataType="local:ScriptRow">
                     <Grid Padding="0,8" ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
+                        <ToggleButton Grid.Column="0"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{x:Bind Pinned, Mode=TwoWay}"
+                                      Click="ScriptPin_Click"
+                                      ToolTipService.ToolTip="Pin to dashboard">
+                            <FontIcon Glyph="&#xE718;" FontSize="14" />
+                        </ToggleButton>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
                             <TextBlock Text="{x:Bind Kind}"
                                        FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
-                        <ToggleSwitch Grid.Column="1"
+                        <ToggleSwitch Grid.Column="2"
                                       VerticalAlignment="Center"
                                       IsOn="{x:Bind Enabled, Mode=TwoWay}"
                                       Toggled="Script_Toggled" />
-                        <Button Grid.Column="2" Content="Run" Click="Run_Click" VerticalAlignment="Center" />
+                        <Button Grid.Column="3" Content="Run" Click="Run_Click" VerticalAlignment="Center" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>

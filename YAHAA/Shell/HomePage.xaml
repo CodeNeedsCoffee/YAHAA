@@ -3,19 +3,20 @@
     x:Class="YAHAA.Shell.HomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:YAHAA.Shell"
+    xmlns:svc="using:YAHAA.Services"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Padding="40">
-        <StackPanel Spacing="20" MaxWidth="560" HorizontalAlignment="Left" VerticalAlignment="Top">
+    <ScrollViewer Padding="40,32">
+        <StackPanel Spacing="20" MaxWidth="720" HorizontalAlignment="Left">
             <TextBlock x:Name="Greeting" FontSize="30" FontWeight="Bold" />
 
-            <Border CornerRadius="12"
-                    Padding="20"
+            <!-- Connection status -->
+            <Border CornerRadius="12" Padding="20"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1">
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="10">
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Border Width="10" Height="10" CornerRadius="5" Background="#FF2E7D32"
@@ -28,9 +29,115 @@
                 </StackPanel>
             </Border>
 
-            <TextBlock Text="Your dashboards will appear here. For now you can manage your connection from Settings."
-                       TextWrapping="Wrap"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <!-- Pinned sensors -->
+            <Border CornerRadius="12" Padding="24"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Sensors" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock x:Name="SensorsEmpty"
+                               Text="No pinned sensors. Pin them from the Sensors page."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Visibility="Collapsed" />
+                    <ItemsControl x:Name="SensorsList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="local:DashSensorRow">
+                                <Grid Padding="0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind DisplayName}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{x:Bind CurrentValue, Mode=OneWay}"
+                                               VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Pinned scripts (hidden when the Scripts feature is off) -->
+            <Border x:Name="ScriptsCard" CornerRadius="12" Padding="24"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Scripts" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ScriptsEmpty"
+                               Text="No pinned scripts. Pin them from the Scripts page."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Visibility="Collapsed" />
+                    <ItemsControl x:Name="ScriptsList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="local:DashScriptRow">
+                                <Grid Padding="0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="Run" Click="RunScript_Click" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Actions -->
+            <Border CornerRadius="12" Padding="24"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <StackPanel Spacing="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Actions" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Add action" Click="AddAction_Click" />
+                    </Grid>
+                    <TextBlock Text="Each action sends a POST to a Home Assistant webhook — use it to trigger a webhook-triggered automation."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="ActionsEmpty"
+                               Text="No actions yet. Click “Add action” to create one."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Visibility="Collapsed" />
+                    <ItemsControl x:Name="ActionsList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="svc:DashboardAction">
+                                <Grid Padding="0,8" ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Bind Webhook}" FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="Trigger" Click="TriggerAction_Click"
+                                            Foreground="White"
+                                            Background="{StaticResource HaBlueBrush}" />
+                                    <Button Grid.Column="2" Click="DeleteAction_Click"
+                                            ToolTipService.ToolTip="Remove action">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <InfoBar x:Name="ActionInfoBar" IsOpen="False" IsClosable="True" />
+                </StackPanel>
+            </Border>
         </StackPanel>
-    </Grid>
+    </ScrollViewer>
 </Page>
