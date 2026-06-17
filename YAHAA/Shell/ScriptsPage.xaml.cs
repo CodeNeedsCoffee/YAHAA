@@ -65,9 +65,11 @@ namespace YAHAA.Shell
 
         private void Script_Toggled(object sender, RoutedEventArgs e)
         {
-            // SetScriptEnabled is idempotent, so the initial bind (matching saved state) is a no-op.
-            if ((sender as ToggleSwitch)?.DataContext is ScriptRow row)
-                AppSettings.SetScriptEnabled(row.Name, row.Enabled);
+            // Read IsOn directly: the Toggled event fires before the TwoWay binding writes back to
+            // row.Enabled, so row.Enabled is still stale here. SetScriptEnabled is idempotent, so the
+            // initial bind (matching saved state) is a no-op.
+            if (sender is ToggleSwitch { DataContext: ScriptRow row } toggle)
+                AppSettings.SetScriptEnabled(row.Name, toggle.IsOn);
         }
     }
 }

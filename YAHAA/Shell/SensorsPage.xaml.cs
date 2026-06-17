@@ -68,9 +68,11 @@ namespace YAHAA.Shell
 
         private void Sensor_Toggled(object sender, RoutedEventArgs e)
         {
-            // SetSensorEnabled is idempotent, so the initial bind (matching saved state) is a no-op.
-            if ((sender as ToggleSwitch)?.DataContext is SensorRow row)
-                AppSettings.SetSensorEnabled(row.Id, row.Enabled);
+            // Read IsOn directly: the Toggled event fires before the TwoWay binding writes back to
+            // row.Enabled, so row.Enabled is still stale here. SetSensorEnabled is idempotent, so the
+            // initial bind (matching saved state) is a no-op.
+            if (sender is ToggleSwitch { DataContext: SensorRow row } toggle)
+                AppSettings.SetSensorEnabled(row.Id, toggle.IsOn);
         }
     }
 }
