@@ -14,7 +14,7 @@ namespace YAHAA.Services
     /// A minimal client for Home Assistant's WebSocket API: connects, authenticates with a
     /// long-lived token, sends commands and awaits their results, and dispatches subscribed events.
     /// </summary>
-    public sealed class HaWebSocketClient : IDisposable
+    public sealed partial class HaWebSocketClient : IDisposable
     {
         private readonly ClientWebSocket _ws = new();
         private readonly ConcurrentDictionary<int, TaskCompletionSource<CommandResult>> _pending = new();

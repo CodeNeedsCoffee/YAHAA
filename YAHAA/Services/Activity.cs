@@ -7,7 +7,7 @@ namespace YAHAA.Services
     /// Reports whether the user is actively using this PC, based on the time since the last
     /// keyboard/mouse input (the same signal the HA companion apps use for their "Active" sensor).
     /// </summary>
-    public static class Activity
+    public static partial class Activity
     {
         [StructLayout(LayoutKind.Sequential)]
         private struct LASTINPUTINFO
@@ -16,8 +16,9 @@ namespace YAHAA.Services
             public uint dwTime;
         }
 
-        [DllImport("user32.dll")]
-        private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
         /// <summary>Seconds since the last user input across the session.</summary>
         public static int IdleSeconds

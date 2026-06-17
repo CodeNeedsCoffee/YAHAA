@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace YAHAA.Common
@@ -66,14 +67,24 @@ namespace YAHAA.Common
 
             var hInstance = GetModuleHandleW(null);
 
-            var wc = new WNDCLASSEX
+            // RegisterClassEx copies the class name into its atom table, so the buffer can be freed
+            // immediately afterwards.
+            var classNamePtr = Marshal.StringToHGlobalUni("YAHAA_TrayWindow");
+            try
             {
-                cbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
-                lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_wndProc),
-                hInstance = hInstance,
-                lpszClassName = "YAHAA_TrayWindow",
-            };
-            _classAtom = RegisterClassExW(ref wc); // 0 is fine if the class already exists
+                var wc = new WNDCLASSEX
+                {
+                    cbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
+                    lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_wndProc),
+                    hInstance = hInstance,
+                    lpszClassName = classNamePtr,
+                };
+                _classAtom = RegisterClassExW(ref wc); // 0 is fine if the class already exists
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(classNamePtr);
+            }
 
             _hwnd = CreateWindowExW(0, "YAHAA_TrayWindow", "YAHAA_Tray", 0,
                 0, 0, 0, 0, HWND_MESSAGE, IntPtr.Zero, hInstance, IntPtr.Zero);
@@ -85,7 +96,7 @@ namespace YAHAA.Common
             data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
             data.uCallbackMessage = WM_TRAYCALLBACK;
             data.hIcon = _hIcon;
-            data.szTip = tooltip;
+            SetTip(data.szTip, tooltip);
 
             _added = Shell_NotifyIconW(NIM_ADD, ref data);
         }
@@ -210,7 +221,7 @@ namespace YAHAA.Common
             public int Y;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         private struct WNDCLASSEX
         {
             public uint cbSize;
@@ -222,12 +233,12 @@ namespace YAHAA.Common
             public IntPtr hIcon;
             public IntPtr hCursor;
             public IntPtr hbrBackground;
-            public string? lpszMenuName;
-            public string lpszClassName;
+            public IntPtr lpszMenuName;
+            public IntPtr lpszClassName;
             public IntPtr hIconSm;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         private struct NOTIFYICONDATA
         {
             public uint cbSize;
@@ -236,69 +247,98 @@ namespace YAHAA.Common
             public uint uFlags;
             public uint uCallbackMessage;
             public IntPtr hIcon;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string szTip;
+            public Utf16Buffer128 szTip;
             public uint dwState;
             public uint dwStateMask;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)] public string szInfo;
+            public Utf16Buffer256 szInfo;
             public uint uVersion;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)] public string szInfoTitle;
+            public Utf16Buffer64 szInfoTitle;
             public uint dwInfoFlags;
             public Guid guidItem;
             public IntPtr hBalloonIcon;
         }
 
-        [DllImport("kernel32", CharSet = CharSet.Unicode)]
-        private static extern IntPtr GetModuleHandleW(string? lpModuleName);
+        // Fixed-size UTF-16 buffers replacing ByValTStr strings, so the structs above stay blittable
+        // (a requirement for LibraryImport source-generated marshalling). ushort elements avoid the
+        // ANSI/Unicode ambiguity of char in a marshalled struct.
+        [InlineArray(128)]
+        private struct Utf16Buffer128 { private ushort _element0; }
 
-        [DllImport("user32", CharSet = CharSet.Unicode)]
-        private static extern ushort RegisterClassExW(ref WNDCLASSEX lpwcx);
+        [InlineArray(256)]
+        private struct Utf16Buffer256 { private ushort _element0; }
 
-        [DllImport("user32", CharSet = CharSet.Unicode)]
-        private static extern bool UnregisterClassW(string lpClassName, IntPtr hInstance);
+        [InlineArray(64)]
+        private struct Utf16Buffer64 { private ushort _element0; }
 
-        [DllImport("user32", CharSet = CharSet.Unicode)]
-        private static extern IntPtr CreateWindowExW(int dwExStyle, string lpClassName, string lpWindowName,
+        /// <summary>Copies a string into a fixed UTF-16 buffer, truncating and null-terminating.</summary>
+        private static void SetTip(Span<ushort> buffer, string value)
+        {
+            buffer.Clear();
+            var count = Math.Min(value.Length, buffer.Length - 1);
+            MemoryMarshal.Cast<char, ushort>(value.AsSpan(0, count)).CopyTo(buffer);
+        }
+
+        [LibraryImport("kernel32", StringMarshalling = StringMarshalling.Utf16)]
+        private static partial IntPtr GetModuleHandleW(string? lpModuleName);
+
+        [LibraryImport("user32")]
+        private static partial ushort RegisterClassExW(ref WNDCLASSEX lpwcx);
+
+        [LibraryImport("user32", StringMarshalling = StringMarshalling.Utf16)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool UnregisterClassW(string lpClassName, IntPtr hInstance);
+
+        [LibraryImport("user32", StringMarshalling = StringMarshalling.Utf16)]
+        private static partial IntPtr CreateWindowExW(int dwExStyle, string lpClassName, string lpWindowName,
             int dwStyle, int x, int y, int nWidth, int nHeight, IntPtr hWndParent, IntPtr hMenu,
             IntPtr hInstance, IntPtr lpParam);
 
-        [DllImport("user32", CharSet = CharSet.Unicode)]
-        private static extern IntPtr DefWindowProcW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+        [LibraryImport("user32")]
+        private static partial IntPtr DefWindowProcW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-        [DllImport("user32")]
-        private static extern bool DestroyWindow(IntPtr hWnd);
+        [LibraryImport("user32")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool DestroyWindow(IntPtr hWnd);
 
-        [DllImport("user32", CharSet = CharSet.Unicode)]
-        private static extern IntPtr LoadImageW(IntPtr hinst, string lpszName, uint uType, int cxDesired,
+        [LibraryImport("user32", StringMarshalling = StringMarshalling.Utf16)]
+        private static partial IntPtr LoadImageW(IntPtr hinst, string lpszName, uint uType, int cxDesired,
             int cyDesired, uint fuLoad);
 
-        [DllImport("user32")]
-        private static extern bool DestroyIcon(IntPtr hIcon);
+        [LibraryImport("user32")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool DestroyIcon(IntPtr hIcon);
 
-        [DllImport("user32")]
-        private static extern int GetSystemMetrics(int nIndex);
+        [LibraryImport("user32")]
+        private static partial int GetSystemMetrics(int nIndex);
 
-        [DllImport("user32")]
-        private static extern IntPtr CreatePopupMenu();
+        [LibraryImport("user32")]
+        private static partial IntPtr CreatePopupMenu();
 
-        [DllImport("user32", CharSet = CharSet.Unicode)]
-        private static extern bool AppendMenuW(IntPtr hMenu, uint uFlags, uint uIDNewItem, string? lpNewItem);
+        [LibraryImport("user32", StringMarshalling = StringMarshalling.Utf16)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool AppendMenuW(IntPtr hMenu, uint uFlags, uint uIDNewItem, string? lpNewItem);
 
-        [DllImport("user32")]
-        private static extern bool DestroyMenu(IntPtr hMenu);
+        [LibraryImport("user32")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool DestroyMenu(IntPtr hMenu);
 
-        [DllImport("user32")]
-        private static extern uint TrackPopupMenuEx(IntPtr hMenu, uint uFlags, int x, int y, IntPtr hwnd, IntPtr lptpm);
+        [LibraryImport("user32")]
+        private static partial uint TrackPopupMenuEx(IntPtr hMenu, uint uFlags, int x, int y, IntPtr hwnd, IntPtr lptpm);
 
-        [DllImport("user32")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
+        [LibraryImport("user32")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool SetForegroundWindow(IntPtr hWnd);
 
-        [DllImport("user32")]
-        private static extern bool GetCursorPos(out POINT lpPoint);
+        [LibraryImport("user32")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetCursorPos(out POINT lpPoint);
 
-        [DllImport("user32", CharSet = CharSet.Unicode)]
-        private static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+        [LibraryImport("user32")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-        [DllImport("shell32", CharSet = CharSet.Unicode)]
-        private static extern bool Shell_NotifyIconW(uint dwMessage, ref NOTIFYICONDATA lpData);
+        [LibraryImport("shell32")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool Shell_NotifyIconW(uint dwMessage, ref NOTIFYICONDATA lpData);
     }
 }
