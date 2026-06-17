@@ -152,7 +152,9 @@ namespace YAHAA.Services
             for (var i = 0; i < readings.Count; i++)
             {
                 var r = readings[i];
-                data[i] = new { unique_id = r.UniqueId, state = r.State, icon = r.Icon };
+                // "type" is required on every entry; Home Assistant silently drops the whole
+                // update (HTTP 200, logged error) if it's missing. All YAHAA sensors are binary.
+                data[i] = new { type = "binary_sensor", unique_id = r.UniqueId, state = r.State, icon = r.Icon };
             }
 
             var payload = new { type = "update_sensor_states", data };
@@ -167,7 +169,7 @@ namespace YAHAA.Services
             string baseUrl, string webhookId, IEnumerable<string> uniqueIds, CancellationToken ct = default)
         {
             var data = uniqueIds
-                .Select(id => (object)new { unique_id = id, state = (object?)null })
+                .Select(id => (object)new { type = "binary_sensor", unique_id = id, state = (object?)null })
                 .ToArray();
 
             var payload = new { type = "update_sensor_states", data };

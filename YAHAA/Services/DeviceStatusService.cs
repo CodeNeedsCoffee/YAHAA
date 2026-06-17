@@ -10,13 +10,16 @@ namespace YAHAA.Services
     /// Background service that keeps Home Assistant updated with this PC's status sensors (see
     /// <see cref="SensorCatalog"/>). Each sensor's change is debounced by
     /// <see cref="AppSettings.StatusDebounceSeconds"/> in both directions. Sensors the user has
-    /// turned off are registered as disabled in HA and not reported. Runs while the app is alive,
+    /// turned off are left registered (and enabled) in HA but stop being reported and are blanked
+    /// to "unknown": HA's mobile_app integration cannot reliably re-enable a webhook sensor once it
+    /// has been disabled, so we never disable the entity itself. Runs while the app is alive,
     /// including hidden in the system tray.
     /// </summary>
     public static class DeviceStatusService
     {
         // Bump when the set of registered sensors changes so existing installs re-register them.
-        private const int SensorsVersion = 2;
+        // v3: sensors are always registered enabled (toggling off only blanks/stops reporting).
+        private const int SensorsVersion = 3;
 
         private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan Heartbeat = TimeSpan.FromMinutes(5);
@@ -242,15 +245,26 @@ namespace YAHAA.Services
             }
         }
 
-        // Re-registers each sensor with its disabled flag so HA enables/disables the entity, and
-        // pushes "unknown" for disabled ones as a fallback.
+        // Reacts to a sensor being toggled on/off. We never disable the HA entity (the mobile_app
+        // integration can't reliably re-enable it afterwards); instead, sensors turned off are
+        // blanked to "unknown" and simply stop being reported, while the rest are reset so their
+        // current value is re-sent.
         private static async Task SyncSensorEnablementAsync(List<SensorRuntime> sensors, CancellationToken ct)
         {
+            var disabledIds = new List<string>();
             foreach (var s in sensors)
             {
-                var enabled = AppSettings.IsSensorEnabled(s.Info.Id);
+                // Clearing Reported forces enabled sensors to re-send their value on the next poll.
+                s.Reported = null;
+                s.Pending = null;
+                if (!AppSettings.IsSensorEnabled(s.Info.Id))
+                    disabledIds.Add(s.Info.Id);
+            }
+
+            if (disabledIds.Count > 0)
+            {
                 var result = await MobileAppClient
-                    .RegisterSensorAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, s.Def, s.Info.Read(), disabled: !enabled, ct: ct)
+                    .SetSensorsUnknownAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, disabledIds, ct)
                     .ConfigureAwait(false);
 
                 if (result == WebhookResult.WebhookInvalid)
@@ -258,16 +272,6 @@ namespace YAHAA.Services
                     RegistrationStore.ClearWebhook();
                     ResetReported(sensors);
                     return; // leave _sensorSyncRequested set so we retry after re-registering
-                }
-
-                s.Reported = null;
-                s.Pending = null;
-
-                if (!enabled)
-                {
-                    await MobileAppClient
-                        .SetSensorsUnknownAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, new[] { s.Info.Id }, ct)
-                        .ConfigureAwait(false);
                 }
             }
 
@@ -296,9 +300,10 @@ namespace YAHAA.Services
             {
                 foreach (var s in sensors)
                 {
-                    var enabled = AppSettings.IsSensorEnabled(s.Info.Id);
+                    // Always register enabled; sensors the user turned off are blanked to "unknown"
+                    // by SyncSensorEnablementAsync (requested on start) rather than disabled in HA.
                     var result = await MobileAppClient
-                        .RegisterSensorAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, s.Def, s.Info.Read(), disabled: !enabled, ct: ct)
+                        .RegisterSensorAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, s.Def, s.Info.Read(), disabled: false, ct: ct)
                         .ConfigureAwait(false);
 
                     if (result == WebhookResult.WebhookInvalid)
