@@ -22,7 +22,15 @@ namespace YAHAA.Services
     /// </summary>
     public static class ScriptBridge
     {
-        private const string HelperPrefix = "YAHAA: ";
+        // Helper names are prefixed per device (e.g. "YAHAA (LAPTOP): backup.ps1") so several PCs
+        // running YAHAA against one Home Assistant can each expose the same script filename without
+        // colliding, and so each install only ever creates/deletes/handles its own buttons.
+        private static string HelperPrefix => $"YAHAA ({AppSettings.EffectiveDeviceName}): ";
+
+        // The old device-agnostic prefix used before per-device naming; any leftover helpers with
+        // this exact prefix are cleaned up on sync so they don't linger as duplicates.
+        private const string LegacyHelperPrefix = "YAHAA: ";
+
         private static readonly TimeSpan ResyncInterval = TimeSpan.FromSeconds(30);
         private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(10);
         private static readonly object Gate = new();
@@ -130,13 +138,16 @@ namespace YAHAA.Services
                 if (name is not null && id is not null) existing[name] = id;
             }
 
-            var desired = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var s in scripts) desired.Add(HelperPrefix + s.Name);
+            // Captured once: this install's per-device prefix (e.g. "YAHAA (LAPTOP): ").
+            var prefix = HelperPrefix;
 
-            // Create buttons for new scripts.
+            var desired = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var s in scripts) desired.Add(prefix + s.Name);
+
+            // Create buttons for newly enabled scripts.
             foreach (var s in scripts)
             {
-                var helperName = HelperPrefix + s.Name;
+                var helperName = prefix + s.Name;
                 if (!existing.ContainsKey(helperName))
                 {
                     await client.SendCommandAsync(new()
@@ -148,10 +159,14 @@ namespace YAHAA.Services
                 }
             }
 
-            // Remove our buttons whose script is gone or has been disabled.
+            // Delete this device's buttons whose script is gone or has been disabled, plus any
+            // helpers left over from the old device-agnostic naming. The per-device prefix match
+            // keeps us from touching buttons created by YAHAA on other PCs.
             foreach (var kv in existing)
             {
-                if (kv.Key.StartsWith(HelperPrefix, StringComparison.Ordinal) && !desired.Contains(kv.Key))
+                var isOurStale = kv.Key.StartsWith(prefix, StringComparison.Ordinal) && !desired.Contains(kv.Key);
+                var isLegacy = kv.Key.StartsWith(LegacyHelperPrefix, StringComparison.Ordinal);
+                if (isOurStale || isLegacy)
                 {
                     try
                     {
@@ -170,7 +185,7 @@ namespace YAHAA.Services
 
             NameToScript.Clear();
             foreach (var s in scripts)
-                NameToScript[HelperPrefix + s.Name] = s.FullPath;
+                NameToScript[prefix + s.Name] = s.FullPath;
         }
 
         private static void OnHaEvent(JsonElement ev)
