@@ -1,8 +1,7 @@
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using System.Linq;
 using YAHAA.Scripts;
 using YAHAA.Services;
 
@@ -62,7 +61,7 @@ namespace YAHAA.Shell
 
         private void Run_Click(object sender, RoutedEventArgs e)
         {
-            if ((sender as FrameworkElement)?.DataContext is ScriptRow row)
+            if (sender is FrameworkElement { DataContext: ScriptRow row })
                 ScriptRunner.Run(row.FullPath);
         }
 

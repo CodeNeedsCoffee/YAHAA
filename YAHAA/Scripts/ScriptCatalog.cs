@@ -14,7 +14,7 @@ namespace YAHAA.Scripts
         public static IReadOnlyList<ScriptItem> Enumerate(string? folder)
         {
             if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
-                return Array.Empty<ScriptItem>();
+                return [];
 
             var items = new List<ScriptItem>();
             try
@@ -34,10 +34,10 @@ namespace YAHAA.Scripts
             catch
             {
                 // Folder became inaccessible; treat as empty.
-                return Array.Empty<ScriptItem>();
+                return [];
             }
 
-            return items.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            return [.. items.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
         }
     }
 }

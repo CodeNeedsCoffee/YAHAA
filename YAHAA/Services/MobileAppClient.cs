@@ -168,20 +168,20 @@ namespace YAHAA.Services
         public static async Task<WebhookResult> RegisterLocationSensorsAsync(
             string baseUrl, string webhookId, CancellationToken ct = default)
         {
-            foreach (var s in LocationSensors())
+            foreach (var (UniqueId, Name, Unit, Icon) in LocationSensors())
             {
                 var result = await PostWebhookAsync(baseUrl, webhookId, new
                 {
                     type = "register_sensor",
                     data = new
                     {
-                        unique_id = s.UniqueId,
-                        name = s.Name,
+                        unique_id = UniqueId,
+                        name = Name,
                         type = "sensor",
                         state = 0.0,
-                        unit_of_measurement = s.Unit,
+                        unit_of_measurement = Unit,
                         entity_category = "diagnostic",
-                        icon = s.Icon,
+                        icon = Icon,
                     },
                 }, ct).ConfigureAwait(false);
 

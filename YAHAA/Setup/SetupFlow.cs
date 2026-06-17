@@ -1,7 +1,7 @@
-using System;
-using System.Collections.Generic;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
+using System;
+using System.Collections.Generic;
 
 namespace YAHAA.Setup
 {
@@ -10,10 +10,10 @@ namespace YAHAA.Setup
     /// drives the host <see cref="Frame"/> with horizontal slide transitions, mimicking the
     /// Home Assistant mobile onboarding flow.
     /// </summary>
-    public sealed class SetupFlow
+    public sealed class SetupFlow(Frame frame, IReadOnlyList<Type> steps)
     {
-        private readonly Frame _frame;
-        private readonly List<Type> _steps;
+        private readonly Frame _frame = frame;
+        private readonly List<Type> _steps = [.. steps];
         private int _index = -1;
 
         /// <summary>Raised whenever the active step changes. Args are (currentIndex, totalSteps).</summary>
@@ -26,12 +26,6 @@ namespace YAHAA.Setup
         public string DeviceName { get; set; } = string.Empty;
         public string? LocationName { get; set; }
         public string? Version { get; set; }
-
-        public SetupFlow(Frame frame, IReadOnlyList<Type> steps)
-        {
-            _frame = frame;
-            _steps = new List<Type>(steps);
-        }
 
         public int StepCount => _steps.Count;
         public int CurrentIndex => _index;

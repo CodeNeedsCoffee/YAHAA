@@ -41,19 +41,13 @@ namespace YAHAA.Services
         /// <summary>Raised when <see cref="StatusText"/> or <see cref="LastReportedActive"/> changes.</summary>
         public static event Action? StatusChanged;
 
-        private sealed class SensorRuntime
+        private sealed class SensorRuntime(SensorInfo info)
         {
-            public SensorInfo Info { get; }
-            public SensorDefinition Def { get; }
+            public SensorInfo Info { get; } = info;
+            public SensorDefinition Def { get; } = new SensorDefinition(info.Id, info.DisplayName, info.OnIcon, info.OffIcon);
             public bool? Reported { get; set; }
             public bool? Pending { get; set; }
             public DateTime PendingSince { get; set; }
-
-            public SensorRuntime(SensorInfo info)
-            {
-                Info = info;
-                Def = new SensorDefinition(info.Id, info.DisplayName, info.OnIcon, info.OffIcon);
-            }
         }
 
         public static void Start()
@@ -130,96 +124,96 @@ namespace YAHAA.Services
                 {
                     try
                     {
-                    if (await EnsureRegisteredAsync(sensors, ct).ConfigureAwait(false))
-                    {
-                        if (_registrationRefreshRequested)
-                            await RefreshRegistrationAsync(sensors, ct).ConfigureAwait(false);
-
-                        if (_sensorSyncRequested)
-                            await SyncSensorEnablementAsync(sensors, ct).ConfigureAwait(false);
-
-                        var now = DateTime.UtcNow;
-                        var debounce = TimeSpan.FromSeconds(AppSettings.StatusDebounceSeconds);
-                        var heartbeatDue = now - lastSendUtc >= Heartbeat;
-
-                        var sends = new List<(SensorRuntime Sensor, bool State)>();
-                        foreach (var s in sensors)
+                        if (await EnsureRegisteredAsync(sensors, ct).ConfigureAwait(false))
                         {
-                            if (!AppSettings.IsSensorEnabled(s.Info.Id))
-                            {
-                                s.Reported = null;
-                                s.Pending = null;
-                                continue;
-                            }
+                            if (_registrationRefreshRequested)
+                                await RefreshRegistrationAsync(sensors, ct).ConfigureAwait(false);
 
-                            var raw = s.Info.Read();
-                            if (s.Reported is null)
+                            if (_sensorSyncRequested)
+                                await SyncSensorEnablementAsync(sensors, ct).ConfigureAwait(false);
+
+                            var now = DateTime.UtcNow;
+                            var debounce = TimeSpan.FromSeconds(AppSettings.StatusDebounceSeconds);
+                            var heartbeatDue = now - lastSendUtc >= Heartbeat;
+
+                            var sends = new List<(SensorRuntime Sensor, bool State)>();
+                            foreach (var s in sensors)
                             {
-                                sends.Add((s, raw));
-                            }
-                            else if (raw != s.Reported)
-                            {
-                                if (s.Pending != raw)
+                                if (!AppSettings.IsSensorEnabled(s.Info.Id))
                                 {
-                                    s.Pending = raw;
-                                    s.PendingSince = now;
+                                    s.Reported = null;
+                                    s.Pending = null;
+                                    continue;
                                 }
-                                else if (now - s.PendingSince >= debounce)
+
+                                var raw = s.Info.Read();
+                                if (s.Reported is null)
                                 {
                                     sends.Add((s, raw));
                                 }
-                            }
-                            else
-                            {
-                                s.Pending = null;
-                            }
-                        }
-
-                        if (heartbeatDue)
-                        {
-                            foreach (var s in sensors)
-                            {
-                                if (AppSettings.IsSensorEnabled(s.Info.Id)
-                                    && s.Reported is bool reported
-                                    && sends.All(x => x.Sensor != s))
+                                else if (raw != s.Reported)
                                 {
-                                    sends.Add((s, reported));
+                                    if (s.Pending != raw)
+                                    {
+                                        s.Pending = raw;
+                                        s.PendingSince = now;
+                                    }
+                                    else if (now - s.PendingSince >= debounce)
+                                    {
+                                        sends.Add((s, raw));
+                                    }
+                                }
+                                else
+                                {
+                                    s.Pending = null;
+                                }
+                            }
+
+                            if (heartbeatDue)
+                            {
+                                foreach (var s in sensors)
+                                {
+                                    if (AppSettings.IsSensorEnabled(s.Info.Id)
+                                        && s.Reported is bool reported
+                                        && sends.All(x => x.Sensor != s))
+                                    {
+                                        sends.Add((s, reported));
+                                    }
+                                }
+                            }
+
+                            if (sends.Count > 0)
+                            {
+                                var readings = sends
+                                    .Select(x => new SensorReading(x.Sensor.Def.UniqueId, x.State, x.Sensor.Def.IconFor(x.State)))
+                                    .ToList();
+
+                                var result = await MobileAppClient
+                                    .UpdateSensorStatesAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, readings, ct)
+                                    .ConfigureAwait(false);
+
+                                switch (result)
+                                {
+                                    case WebhookResult.Ok:
+                                        foreach (var (sensor, state) in sends)
+                                        {
+                                            sensor.Reported = state;
+                                            sensor.Pending = null;
+                                        }
+                                        lastSendUtc = now;
+                                        UpdateStatus(sensors);
+                                        break;
+                                    case WebhookResult.WebhookInvalid:
+                                        RegistrationStore.ClearWebhook();
+                                        ResetReported(sensors);
+                                        SetStatus("Re-registering…");
+                                        break;
+                                    default:
+                                        SetStatus("Couldn't reach Home Assistant");
+                                        break;
                                 }
                             }
                         }
-
-                        if (sends.Count > 0)
-                        {
-                            var readings = sends
-                                .Select(x => new SensorReading(x.Sensor.Def.UniqueId, x.State, x.Sensor.Def.IconFor(x.State)))
-                                .ToList();
-
-                            var result = await MobileAppClient
-                                .UpdateSensorStatesAsync(ConfigStore.ServerUrl, RegistrationStore.WebhookId!, readings, ct)
-                                .ConfigureAwait(false);
-
-                            switch (result)
-                            {
-                                case WebhookResult.Ok:
-                                    foreach (var (sensor, state) in sends)
-                                    {
-                                        sensor.Reported = state;
-                                        sensor.Pending = null;
-                                    }
-                                    lastSendUtc = now;
-                                    UpdateStatus(sensors);
-                                    break;
-                                case WebhookResult.WebhookInvalid:
-                                    RegistrationStore.ClearWebhook();
-                                    ResetReported(sensors);
-                                    SetStatus("Re-registering…");
-                                    break;
-                                default:
-                                    SetStatus("Couldn't reach Home Assistant");
-                                    break;
-                            }
-                        }
-                    }
                     }
                     catch (OperationCanceledException)
                     {

@@ -11,7 +11,7 @@ namespace YAHAA.Common
     /// Must be created and disposed on the UI thread; the WinUI message loop pumps the messages
     /// for the hidden message-only window this creates.
     /// </summary>
-    public sealed class TrayIcon : IDisposable
+    public sealed partial class TrayIcon : IDisposable
     {
         private const uint WM_TRAYCALLBACK = 0x8000 + 1; // WM_APP + 1
         private const uint WM_LBUTTONUP = 0x0202;

@@ -9,8 +9,8 @@ namespace YAHAA.Services
     /// <summary>The fixed set of status sensors YAHAA can report to Home Assistant.</summary>
     public static class SensorCatalog
     {
-        public static IReadOnlyList<SensorInfo> All { get; } = new List<SensorInfo>
-        {
+        public static IReadOnlyList<SensorInfo> All { get; } =
+        [
             new("active", "Active", "mdi:monitor", "mdi:monitor-off",
                 () => Activity.IsActive(AppSettings.IdleThresholdSeconds)),
             new("camera", "Camera", "mdi:webcam", "mdi:webcam-off",
@@ -19,6 +19,6 @@ namespace YAHAA.Services
                 CapabilityUsage.IsMicrophoneInUse),
             new("camera_or_microphone", "Camera or Microphone", "mdi:video", "mdi:video-off",
                 () => CapabilityUsage.IsCameraInUse() || CapabilityUsage.IsMicrophoneInUse()),
-        };
+        ];
     }
 }

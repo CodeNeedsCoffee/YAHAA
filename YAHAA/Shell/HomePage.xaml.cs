@@ -1,16 +1,16 @@
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using YAHAA.Scripts;
 using YAHAA.Services;
 
 namespace YAHAA.Shell
 {
     /// <summary>A pinned sensor row whose value refreshes live.</summary>
-    public sealed class DashSensorRow : INotifyPropertyChanged
+    public sealed partial class DashSensorRow : INotifyPropertyChanged
     {
         public required string Id { get; init; }
         public required string DisplayName { get; init; }
@@ -45,7 +45,7 @@ namespace YAHAA.Shell
     public sealed partial class HomePage : Page
     {
         private readonly DispatcherTimer _refreshTimer;
-        private List<DashSensorRow> _sensorRows = new();
+        private List<DashSensorRow> _sensorRows = [];
 
         public HomePage()
         {
@@ -100,10 +100,9 @@ namespace YAHAA.Shell
         private void BuildLists()
         {
             // Sensors: only those still in the catalog, in catalog order.
-            _sensorRows = SensorCatalog.All
+            _sensorRows = [.. SensorCatalog.All
                 .Where(s => AppSettings.IsSensorPinned(s.Id))
-                .Select(s => new DashSensorRow { Id = s.Id, DisplayName = s.DisplayName, Read = s.Read })
-                .ToList();
+                .Select(s => new DashSensorRow { Id = s.Id, DisplayName = s.DisplayName, Read = s.Read })];
             SensorsList.ItemsSource = _sensorRows;
             SensorsEmpty.Visibility = _sensorRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             RefreshSensorValues();
@@ -131,7 +130,7 @@ namespace YAHAA.Shell
 
         private void RunScript_Click(object sender, RoutedEventArgs e)
         {
-            if ((sender as FrameworkElement)?.DataContext is DashScriptRow row)
+            if (sender is FrameworkElement { DataContext: DashScriptRow row })
                 ScriptRunner.Run(row.FullPath);
         }
 
@@ -184,7 +183,7 @@ namespace YAHAA.Shell
 
         private void DeleteAction_Click(object sender, RoutedEventArgs e)
         {
-            if ((sender as FrameworkElement)?.DataContext is DashboardAction action)
+            if (sender is FrameworkElement { DataContext: DashboardAction action })
                 AppSettings.RemoveDashboardAction(action);
         }
 

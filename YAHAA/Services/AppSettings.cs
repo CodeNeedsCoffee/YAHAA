@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 
 namespace YAHAA.Services
@@ -33,11 +32,11 @@ namespace YAHAA.Services
             public bool ScriptsEnabled { get; set; }
             public string ScriptsFolder { get; set; } = string.Empty;
             public bool LocationTrackingEnabled { get; set; }
-            public List<string> DisabledSensors { get; set; } = new();
-            public List<string> DisabledScripts { get; set; } = new();
-            public List<string> PinnedSensors { get; set; } = new();
-            public List<string> PinnedScripts { get; set; } = new();
-            public List<DashboardAction> DashboardActions { get; set; } = new();
+            public List<string> DisabledSensors { get; set; } = [];
+            public List<string> DisabledScripts { get; set; } = [];
+            public List<string> PinnedSensors { get; set; } = [];
+            public List<string> PinnedScripts { get; set; } = [];
+            public List<DashboardAction> DashboardActions { get; set; } = [];
         }
 
         public const int MinDebounceSeconds = 3;
@@ -126,7 +125,7 @@ namespace YAHAA.Services
 
         private static HashSet<string> _pinnedSensors = new(StringComparer.Ordinal);
         private static HashSet<string> _pinnedScripts = new(StringComparer.OrdinalIgnoreCase);
-        private static List<DashboardAction> _dashboardActions = new();
+        private static List<DashboardAction> _dashboardActions = [];
 
         public static bool IsSensorPinned(string sensorId) => _pinnedSensors.Contains(sensorId);
 
@@ -180,11 +179,11 @@ namespace YAHAA.Services
                 ScriptsEnabled = stored.ScriptsEnabled;
                 ScriptsFolder = stored.ScriptsFolder ?? string.Empty;
                 LocationTrackingEnabled = stored.LocationTrackingEnabled;
-                _disabledSensors = new HashSet<string>(stored.DisabledSensors ?? new(), StringComparer.Ordinal);
-                _disabledScripts = new HashSet<string>(stored.DisabledScripts ?? new(), StringComparer.OrdinalIgnoreCase);
-                _pinnedSensors = new HashSet<string>(stored.PinnedSensors ?? new(), StringComparer.Ordinal);
-                _pinnedScripts = new HashSet<string>(stored.PinnedScripts ?? new(), StringComparer.OrdinalIgnoreCase);
-                _dashboardActions = stored.DashboardActions ?? new();
+                _disabledSensors = new HashSet<string>(stored.DisabledSensors ?? [], StringComparer.Ordinal);
+                _disabledScripts = new HashSet<string>(stored.DisabledScripts ?? [], StringComparer.OrdinalIgnoreCase);
+                _pinnedSensors = new HashSet<string>(stored.PinnedSensors ?? [], StringComparer.Ordinal);
+                _pinnedScripts = new HashSet<string>(stored.PinnedScripts ?? [], StringComparer.OrdinalIgnoreCase);
+                _dashboardActions = stored.DashboardActions ?? [];
                 LaunchOnStartup = stored.LaunchOnStartup;
             }
             catch
@@ -201,7 +200,7 @@ namespace YAHAA.Services
                 _disabledScripts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 _pinnedSensors = new HashSet<string>(StringComparer.Ordinal);
                 _pinnedScripts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                _dashboardActions = new();
+                _dashboardActions = [];
                 LaunchOnStartup = false;
             }
         }
@@ -320,11 +319,11 @@ namespace YAHAA.Services
                     ScriptsEnabled = ScriptsEnabled,
                     ScriptsFolder = ScriptsFolder,
                     LocationTrackingEnabled = LocationTrackingEnabled,
-                    DisabledSensors = _disabledSensors.ToList(),
-                    DisabledScripts = _disabledScripts.ToList(),
-                    PinnedSensors = _pinnedSensors.ToList(),
-                    PinnedScripts = _pinnedScripts.ToList(),
-                    DashboardActions = _dashboardActions,
+                    DisabledSensors = [.. _disabledSensors],
+                    DisabledScripts = [.. _disabledScripts],
+                    PinnedSensors = [.. _pinnedSensors],
+                    PinnedScripts = [.. _pinnedScripts],
+                    DashboardActions = [.. _dashboardActions],
                 }));
             }
             catch

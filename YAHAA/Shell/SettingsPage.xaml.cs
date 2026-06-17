@@ -1,8 +1,9 @@
-using System;
-using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.Win32;
+using System;
+using System.Threading.Tasks;
 using Windows.Devices.Geolocation;
 using YAHAA.Services;
 
@@ -329,18 +330,15 @@ namespace YAHAA.Shell
                 // Not packaged / API unavailable — attempt registry run key for unpackaged app.
                 try
                 {
-                    const string runKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
                     var appName = "YAHAA";
                     var exe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
                     if (!string.IsNullOrEmpty(exe))
                     {
-                        using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Run", true))
-                        {
-                            if (enabled)
-                                key.SetValue(appName, $"\"{exe}\"");
-                            else
-                                key.DeleteValue(appName, false);
-                        }
+                        using RegistryKey? key = Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                        if (enabled)
+                            key?.SetValue(appName, $"\"{exe}\"");
+                        else
+                            key?.DeleteValue(appName, false);
                     }
                 }
                 catch
