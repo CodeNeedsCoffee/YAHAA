@@ -48,6 +48,12 @@ namespace YAHAA
 
             _window.Activate();
 
+            // Keep ConfigStore.ServerUrl pointed at the best endpoint (internal when reachable).
+            // When the endpoint switches, reconnect the WebSocket bridge to the new URL (the HTTP
+            // clients read ConfigStore.ServerUrl per request, so they pick it up on their own).
+            EndpointMonitor.Start();
+            ConfigStore.ActiveEndpointChanged += () => ScriptBridge.Restart();
+
             // Begin reporting device status (no-op until configured + reporting enabled).
             DeviceStatusService.Start();
             AppSettings.SensorsEnabledChanged += () => DeviceStatusService.RequestSensorSync();

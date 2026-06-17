@@ -21,9 +21,11 @@ namespace YAHAA.Shell
         {
             InitializeComponent();
 
-            UrlBox.Text = ConfigStore.ServerUrl;
+            UrlBox.Text = ConfigStore.ExternalUrl;
+            InternalUrlBox.Text = ConfigStore.InternalUrl;
             UsernameBox.Text = ConfigStore.Username;
             TokenBox.Password = ConfigStore.Token;
+            UpdateEndpointStatus();
 
             LogoChoice.SelectedIndex = (int)AppSettings.Logo;
 
@@ -44,6 +46,7 @@ namespace YAHAA.Shell
             DeviceStatusService.StatusChanged += OnReportingStatusChanged;
             LocationService.StatusChanged += OnLocationStatusChanged;
             LocationService.TrackingDisabled += OnLocationTrackingDisabled;
+            ConfigStore.ActiveEndpointChanged += OnEndpointChanged;
 
             _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _refreshTimer.Tick += (_, _) => UpdateDeviceStatus();
@@ -58,6 +61,22 @@ namespace YAHAA.Shell
             DeviceStatusService.StatusChanged -= OnReportingStatusChanged;
             LocationService.StatusChanged -= OnLocationStatusChanged;
             LocationService.TrackingDisabled -= OnLocationTrackingDisabled;
+            ConfigStore.ActiveEndpointChanged -= OnEndpointChanged;
+        }
+
+        private void OnEndpointChanged() => DispatcherQueue.TryEnqueue(UpdateEndpointStatus);
+
+        private void UpdateEndpointStatus()
+        {
+            if (string.IsNullOrWhiteSpace(ConfigStore.InternalUrl))
+            {
+                EndpointStatusText.Text = "Using the external URL.";
+                return;
+            }
+
+            EndpointStatusText.Text = ConfigStore.ActiveEndpointIsInternal
+                ? "Currently connected via the internal URL (on your local network)."
+                : "Currently connected via the external URL (internal not reachable).";
         }
 
         private void OnReportingStatusChanged() => DispatcherQueue.TryEnqueue(UpdateDeviceStatus);
@@ -165,11 +184,14 @@ namespace YAHAA.Shell
             ConfigStore.Save(
                 HomeAssistantClient.NormalizeUrl(UrlBox.Text),
                 UsernameBox.Text?.Trim() ?? string.Empty,
-                TokenBox.Password?.Trim() ?? string.Empty);
+                TokenBox.Password?.Trim() ?? string.Empty,
+                InternalUrlBox.Text?.Trim() ?? string.Empty);
 
-            // Reconnect the scripts bridge to the (possibly new) server.
+            // Re-probe which endpoint to use, and reconnect the scripts bridge to the saved server.
+            EndpointMonitor.Refresh();
             ScriptBridge.Restart();
 
+            UpdateEndpointStatus();
             ShowResult(InfoBarSeverity.Success, "Connection saved.");
         }
 

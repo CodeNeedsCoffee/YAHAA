@@ -21,8 +21,16 @@
                     <TextBlock Text="Home Assistant connection" FontSize="18" FontWeight="SemiBold" />
 
                     <TextBox x:Name="UrlBox"
-                             Header="Home Assistant URL"
+                             Header="Home Assistant URL (external / primary)"
+                             PlaceholderText="https://your-home.ui.nabu.casa" />
+
+                    <TextBox x:Name="InternalUrlBox"
+                             Header="Internal URL (optional, local network)"
                              PlaceholderText="http://homeassistant.local:8123" />
+
+                    <TextBlock x:Name="EndpointStatusText"
+                               FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
                     <TextBox x:Name="UsernameBox"
                              Header="Username"

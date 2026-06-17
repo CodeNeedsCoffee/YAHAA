@@ -54,11 +54,12 @@ namespace YAHAA.Shell
             Greeting.Text = string.IsNullOrWhiteSpace(ConfigStore.Username)
                 ? "Welcome home"
                 : $"Welcome home, {ConfigStore.Username}";
-            ServerText.Text = ConfigStore.ServerUrl;
+            UpdateConnection();
 
             BuildLists();
             AppSettings.DashboardChanged += OnDashboardChanged;
             AppSettings.ScriptsChanged += OnScriptsChanged;
+            ConfigStore.ActiveEndpointChanged += OnEndpointChanged;
 
             _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _refreshTimer.Tick += (_, _) => RefreshSensorValues();
@@ -72,11 +73,29 @@ namespace YAHAA.Shell
             _refreshTimer.Stop();
             AppSettings.DashboardChanged -= OnDashboardChanged;
             AppSettings.ScriptsChanged -= OnScriptsChanged;
+            ConfigStore.ActiveEndpointChanged -= OnEndpointChanged;
         }
 
         private void OnDashboardChanged() => DispatcherQueue.TryEnqueue(BuildLists);
 
         private void OnScriptsChanged() => DispatcherQueue.TryEnqueue(BuildLists);
+
+        private void OnEndpointChanged() => DispatcherQueue.TryEnqueue(UpdateConnection);
+
+        // Shows which endpoint is in use (local vs remote) so it's clear when the internal URL is active.
+        private void UpdateConnection()
+        {
+            if (string.IsNullOrWhiteSpace(ConfigStore.InternalUrl))
+            {
+                ConnectionLabel.Text = "Connected";
+                ServerText.Text = ConfigStore.ExternalUrl;
+            }
+            else
+            {
+                ConnectionLabel.Text = ConfigStore.ActiveEndpointIsInternal ? "Connected (local network)" : "Connected (remote)";
+                ServerText.Text = ConfigStore.ServerUrl;
+            }
+        }
 
         private void BuildLists()
         {

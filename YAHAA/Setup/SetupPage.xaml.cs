@@ -37,7 +37,7 @@ namespace YAHAA.Setup
                 typeof(ConnectingStep),
             })
             {
-                ServerUrl = ConfigStore.ServerUrl,
+                ServerUrl = ConfigStore.ExternalUrl,
                 Username = ConfigStore.Username,
                 Token = ConfigStore.Token,
                 DeviceName = AppSettings.EffectiveDeviceName,

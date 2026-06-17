@@ -40,10 +40,12 @@ namespace YAHAA.Setup.Steps
                 _flow.LocationName = result.LocationName;
                 _flow.Version = result.Version;
 
-                ConfigStore.Save(_flow.ServerUrl, _flow.Username, _flow.Token);
+                // The wizard only collects the external URL; preserve any internal URL set in Settings.
+                ConfigStore.Save(_flow.ServerUrl, _flow.Username, _flow.Token, ConfigStore.InternalUrl);
                 AppSettings.SetDeviceName(_flow.DeviceName);
 
                 // Register this device and begin reporting its status to Home Assistant.
+                EndpointMonitor.Refresh();
                 DeviceStatusService.Start();
                 ScriptBridge.Start();
 

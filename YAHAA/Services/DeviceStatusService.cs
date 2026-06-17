@@ -128,6 +128,8 @@ namespace YAHAA.Services
             {
                 while (!ct.IsCancellationRequested)
                 {
+                    try
+                    {
                     if (await EnsureRegisteredAsync(sensors, ct).ConfigureAwait(false))
                     {
                         if (_registrationRefreshRequested)
@@ -217,6 +219,16 @@ namespace YAHAA.Services
                                     break;
                             }
                         }
+                    }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw; // shutdown — bubble to the outer handler
+                    }
+                    catch (Exception ex)
+                    {
+                        // A transient fault must not permanently kill reporting; log and keep looping.
+                        SetStatus($"Reporting error: {ex.Message}");
                     }
 
                     await Task.Delay(PollInterval, ct).ConfigureAwait(false);
