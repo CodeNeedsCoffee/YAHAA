@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Windows.Devices.Geolocation;
 using YAHAA.Services;
 
 namespace YAHAA.Shell
@@ -34,11 +35,15 @@ namespace YAHAA.Shell
             DebounceSlider.Value = AppSettings.StatusDebounceSeconds;
             UpdateDebounceLabel();
             ScriptsToggle.IsOn = AppSettings.ScriptsEnabled;
+            LocationToggle.IsOn = AppSettings.LocationTrackingEnabled;
             _initializing = false;
 
             UpdateScriptsUi();
             UpdateDeviceStatus();
+            UpdateLocationStatus();
             DeviceStatusService.StatusChanged += OnReportingStatusChanged;
+            LocationService.StatusChanged += OnLocationStatusChanged;
+            LocationService.TrackingDisabled += OnLocationTrackingDisabled;
 
             _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _refreshTimer.Tick += (_, _) => UpdateDeviceStatus();
@@ -51,9 +56,27 @@ namespace YAHAA.Shell
         {
             _refreshTimer.Stop();
             DeviceStatusService.StatusChanged -= OnReportingStatusChanged;
+            LocationService.StatusChanged -= OnLocationStatusChanged;
+            LocationService.TrackingDisabled -= OnLocationTrackingDisabled;
         }
 
         private void OnReportingStatusChanged() => DispatcherQueue.TryEnqueue(UpdateDeviceStatus);
+
+        private void OnLocationStatusChanged() => DispatcherQueue.TryEnqueue(UpdateLocationStatus);
+
+        // The service turned tracking off (permission revoked) — reflect that in the toggle.
+        private void OnLocationTrackingDisabled() => DispatcherQueue.TryEnqueue(() =>
+        {
+            _initializing = true;
+            LocationToggle.IsOn = false;
+            _initializing = false;
+            ShowLocationInfo(InfoBarSeverity.Warning,
+                "Location permission was revoked, so tracking was turned off. Re-enable it in Windows Settings → Privacy & security → Location.");
+            UpdateLocationStatus();
+        });
+
+        private void UpdateLocationStatus() =>
+            LocationStatusText.Text = AppSettings.LocationTrackingEnabled ? LocationService.StatusText : "Off";
 
         private void UpdateDeviceStatus()
         {
@@ -164,6 +187,57 @@ namespace YAHAA.Shell
             UpdateScriptsUi();
         }
 
+        private async void LocationToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_initializing) return;
+
+            if (!LocationToggle.IsOn)
+            {
+                AppSettings.SetLocationTrackingEnabled(false);
+                LocationService.Stop();
+                LocationInfoBar.IsOpen = false;
+                UpdateLocationStatus();
+                return;
+            }
+
+            // Turning on: ask Windows for location permission first.
+            GeolocationAccessStatus status;
+            try
+            {
+                status = await LocationService.RequestAccessAsync();
+            }
+            catch
+            {
+                status = GeolocationAccessStatus.Unspecified;
+            }
+
+            if (status == GeolocationAccessStatus.Allowed)
+            {
+                AppSettings.SetLocationTrackingEnabled(true);
+                LocationService.Start();
+                LocationInfoBar.IsOpen = false;
+            }
+            else
+            {
+                // Permission denied — revert the toggle and tell the user how to grant it.
+                _initializing = true;
+                LocationToggle.IsOn = false;
+                _initializing = false;
+                AppSettings.SetLocationTrackingEnabled(false);
+                ShowLocationInfo(InfoBarSeverity.Error,
+                    "Location permission wasn't granted, so tracking stays off. Allow location for YAHAA in Windows Settings → Privacy & security → Location, then try again.");
+            }
+
+            UpdateLocationStatus();
+        }
+
+        private void ShowLocationInfo(InfoBarSeverity severity, string message)
+        {
+            LocationInfoBar.Severity = severity;
+            LocationInfoBar.Message = message;
+            LocationInfoBar.IsOpen = true;
+        }
+
         private async void ChooseFolder_Click(object sender, RoutedEventArgs e)
         {
             var folder = await PickFolderAsync();
@@ -200,6 +274,7 @@ namespace YAHAA.Shell
         {
             DeviceStatusService.Stop();
             ScriptBridge.Stop();
+            LocationService.Stop();
             RegistrationStore.ClearWebhook();
             ConfigStore.Clear();
             App.Current.GoToSetup();

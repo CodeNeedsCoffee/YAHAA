@@ -31,6 +31,7 @@ namespace YAHAA.Services
             public string DeviceName { get; set; } = string.Empty;
             public bool ScriptsEnabled { get; set; }
             public string ScriptsFolder { get; set; } = string.Empty;
+            public bool LocationTrackingEnabled { get; set; }
             public List<string> DisabledSensors { get; set; } = new();
             public List<string> DisabledScripts { get; set; } = new();
         }
@@ -72,6 +73,12 @@ namespace YAHAA.Services
 
         /// <summary>Folder scanned for .ps1/.bat scripts when <see cref="ScriptsEnabled"/> is on.</summary>
         public static string ScriptsFolder { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// Whether YAHAA reports this PC's location (latitude/longitude) to Home Assistant. Off by
+        /// default; turning it on requires the user to grant Windows location permission.
+        /// </summary>
+        public static bool LocationTrackingEnabled { get; private set; }
 
         /// <summary>Raised after the selected logo changes, so live UI can refresh itself.</summary>
         public static event Action? LogoChanged;
@@ -122,6 +129,7 @@ namespace YAHAA.Services
                 DeviceName = stored.DeviceName ?? string.Empty;
                 ScriptsEnabled = stored.ScriptsEnabled;
                 ScriptsFolder = stored.ScriptsFolder ?? string.Empty;
+                LocationTrackingEnabled = stored.LocationTrackingEnabled;
                 _disabledSensors = new HashSet<string>(stored.DisabledSensors ?? new(), StringComparer.Ordinal);
                 _disabledScripts = new HashSet<string>(stored.DisabledScripts ?? new(), StringComparer.OrdinalIgnoreCase);
             }
@@ -134,9 +142,18 @@ namespace YAHAA.Services
                 DeviceName = string.Empty;
                 ScriptsEnabled = false;
                 ScriptsFolder = string.Empty;
+                LocationTrackingEnabled = false;
                 _disabledSensors = new HashSet<string>(StringComparer.Ordinal);
                 _disabledScripts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
+        }
+
+        /// <summary>Turns location reporting on/off. Permission is gated by the caller (UI).</summary>
+        public static void SetLocationTrackingEnabled(bool enabled)
+        {
+            if (LocationTrackingEnabled == enabled) return;
+            LocationTrackingEnabled = enabled;
+            Save();
         }
 
         public static void SetScriptsEnabled(bool enabled)
@@ -233,6 +250,7 @@ namespace YAHAA.Services
                     DeviceName = DeviceName,
                     ScriptsEnabled = ScriptsEnabled,
                     ScriptsFolder = ScriptsFolder,
+                    LocationTrackingEnabled = LocationTrackingEnabled,
                     DisabledSensors = _disabledSensors.ToList(),
                     DisabledScripts = _disabledScripts.ToList(),
                 }));

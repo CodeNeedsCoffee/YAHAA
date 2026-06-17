@@ -55,6 +55,9 @@ namespace YAHAA
             // Bridge scripts to Home Assistant (no-op until enabled + a folder is chosen).
             ScriptBridge.Start();
             AppSettings.ScriptsChanged += () => ScriptBridge.Restart();
+
+            // Report location to Home Assistant (no-op until enabled + permission granted).
+            LocationService.Start();
         }
 
         /// <summary>Navigates the root frame to the main app shell (after a successful setup).</summary>

@@ -162,6 +162,82 @@ namespace YAHAA.Services
         }
 
         /// <summary>
+        /// Registers the latitude/longitude (and accuracy) sensors used for location reporting.
+        /// They are numeric <c>sensor</c> entities in the device's <b>Diagnostic</b> category.
+        /// </summary>
+        public static async Task<WebhookResult> RegisterLocationSensorsAsync(
+            string baseUrl, string webhookId, CancellationToken ct = default)
+        {
+            foreach (var s in LocationSensors())
+            {
+                var result = await PostWebhookAsync(baseUrl, webhookId, new
+                {
+                    type = "register_sensor",
+                    data = new
+                    {
+                        unique_id = s.UniqueId,
+                        name = s.Name,
+                        type = "sensor",
+                        state = 0.0,
+                        unit_of_measurement = s.Unit,
+                        entity_category = "diagnostic",
+                        icon = s.Icon,
+                    },
+                }, ct).ConfigureAwait(false);
+
+                if (result != WebhookResult.Ok) return result;
+            }
+
+            return WebhookResult.Ok;
+        }
+
+        /// <summary>Pushes the current latitude/longitude/accuracy to the diagnostic location sensors.</summary>
+        public static Task<WebhookResult> UpdateLocationAsync(
+            string baseUrl, string webhookId, double latitude, double longitude, double? accuracyMeters,
+            CancellationToken ct = default)
+        {
+            var payload = new
+            {
+                type = "update_sensor_states",
+                data = new object[]
+                {
+                    new { type = "sensor", unique_id = "yahaa_latitude", state = latitude },
+                    new { type = "sensor", unique_id = "yahaa_longitude", state = longitude },
+                    new { type = "sensor", unique_id = "yahaa_location_accuracy", state = accuracyMeters ?? 0.0 },
+                },
+            };
+            return PostWebhookAsync(baseUrl, webhookId, payload, ct);
+        }
+
+        /// <summary>
+        /// Updates the device's <c>device_tracker</c> via the mobile_app <c>update_location</c>
+        /// webhook so Home Assistant resolves Home/Away (and shows the device on the map) from the
+        /// configured zones. This is separate from the diagnostic latitude/longitude sensors.
+        /// </summary>
+        public static Task<WebhookResult> UpdateDeviceTrackerAsync(
+            string baseUrl, string webhookId, double latitude, double longitude, double? accuracyMeters,
+            CancellationToken ct = default)
+        {
+            var payload = new
+            {
+                type = "update_location",
+                data = new
+                {
+                    gps = new[] { latitude, longitude },
+                    gps_accuracy = (int)Math.Round(accuracyMeters ?? 0.0),
+                },
+            };
+            return PostWebhookAsync(baseUrl, webhookId, payload, ct);
+        }
+
+        private static IEnumerable<(string UniqueId, string Name, string Unit, string Icon)> LocationSensors()
+        {
+            yield return ("yahaa_latitude", "Latitude", "°", "mdi:latitude");
+            yield return ("yahaa_longitude", "Longitude", "°", "mdi:longitude");
+            yield return ("yahaa_location_accuracy", "Location accuracy", "m", "mdi:map-marker-radius");
+        }
+
+        /// <summary>
         /// Sets the given sensors to a null state, which Home Assistant renders as "unknown"
         /// (used when the app is shutting down so stale "on"/"active" values don't linger).
         /// </summary>

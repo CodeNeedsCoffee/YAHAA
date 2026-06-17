@@ -113,6 +113,38 @@
                 </StackPanel>
             </Border>
 
+            <!-- Location card -->
+            <Border CornerRadius="12"
+                    Padding="24"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Location" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Text="Report this PC's location to Home Assistant as diagnostic sensors on the device. Turning this on asks Windows for location permission."
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Track location" VerticalAlignment="Center" />
+                            <TextBlock x:Name="LocationStatusText"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <ToggleSwitch x:Name="LocationToggle"
+                                      Grid.Column="1"
+                                      Toggled="LocationToggle_Toggled" />
+                    </Grid>
+
+                    <InfoBar x:Name="LocationInfoBar" IsOpen="False" IsClosable="True" />
+                </StackPanel>
+            </Border>
+
             <!-- Appearance card -->
             <Border CornerRadius="12"
                     Padding="24"
