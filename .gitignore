@@ -1,5 +1,6 @@
 # MSIX build output
 AppPackages/
+BundleArtifacts/
 
 # Build results
 [Dd]ebug/

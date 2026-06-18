@@ -62,10 +62,30 @@
 
   <!-- Publish Properties -->
   <PropertyGroup>
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <!--
+      Trimming and ReadyToRun are not supported for WinUI 3 / Windows App SDK apps:
+      - PublishTrimmed strips types that XAML resolves via reflection, producing a
+        package that builds but crashes at runtime.
+      - PublishReadyToRun requires per-RID crossgen2 runtime packs to be restored,
+        which fails (NETSDK1094) when the store profile bundles x86|x64|arm64.
+      Keep both off for the Store/MSIX build.
+    -->
+    <PublishReadyToRun>False</PublishReadyToRun>
+    <PublishTrimmed>False</PublishTrimmed>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!--
+    Map the build Platform to a self-contained RuntimeIdentifier when one isn't
+    already supplied. The store-upload bundle build (AppxBundlePlatforms=x86|x64|arm64)
+    recursively builds each platform passing only Platform=<arch>; without this the
+    RID would stay pinned to the parent's value and fail NETSDK1032
+    (RuntimeIdentifier/PlatformTarget mismatch). Guarded on empty RID so the
+    single-platform win-*.pubxml profiles still take precedence.
+  -->
+  <PropertyGroup>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x86'">win-x86</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
   </PropertyGroup>
 </Project>

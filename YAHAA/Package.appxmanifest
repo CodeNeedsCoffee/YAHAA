@@ -45,7 +45,7 @@
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
       <Extensions>
-        <uap5:Extension Category="windows.startupTask" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
+        <uap5:Extension Category="windows.startupTask" Executable="YAHAA.exe" EntryPoint="Windows.FullTrustApplication">
           <uap5:StartupTask TaskId="YAHAAStartup" Enabled="false" DisplayName="YAHAA" />
         </uap5:Extension>
       </Extensions>
