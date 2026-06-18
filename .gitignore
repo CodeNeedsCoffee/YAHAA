@@ -54,7 +54,6 @@ TestResults/
 
 # Publish
 *.[Pp]ublish.xml
-*.pubxml
 *.pubxml.user
 publish/
 PublishScripts/
