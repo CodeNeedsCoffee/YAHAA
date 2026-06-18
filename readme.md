@@ -26,7 +26,7 @@ A two-way Windows companion app for [Home Assistant](https://www.home-assistant.
 
 ## Installation
 
-The easiest way to install is via the **Microsoft Store** or **winget**:
+The easiest way to install is via the **[Microsoft Store](https://apps.microsoft.com/detail/9NNS5XJH665F)** or **winget**:
 
 ```
 winget install YAHAA
@@ -58,6 +58,56 @@ dotnet publish -p:PublishProfile=win-x64 -c Release
 **3. Install the MSIX**
 
 Navigate to the publish output folder and run the generated `.msix` installer.
+
+---
+
+## Building for the Microsoft Store
+
+> [!IMPORTANT]
+> Before building for Store submission, you must reserve your app name in [Partner Center](https://partner.microsoft.com/dashboard) and update `Package.appxmanifest` with the identity values from **App management → Product identity**:
+> ```xml
+> <Identity Name="<PackageIdentityName>"
+>           Publisher="<PublisherDN>"
+>           Version="1.0.0.0" />
+> <Properties>
+>   <PublisherDisplayName>Your Display Name</PublisherDisplayName>
+> </Properties>
+> ```
+
+**1. Clone the repo** (if not already done)
+
+```bash
+git clone https://github.com/CodeNeedsCoffee/YAHAA.git
+cd YAHAA
+```
+
+**2. Build the Store upload package**
+
+```powershell
+msbuild YAHAA\YAHAA.csproj `
+  /p:Configuration=Release `
+  /p:Platform=x64 `
+  /p:PublishProfile=store-upload `
+  /p:AppxBundle=Always `
+  /p:AppxBundlePlatforms="x86|x64|arm64" `
+  /t:Publish
+```
+
+This uses the `store-upload` publish profile, which:
+- Disables local code-signing (Partner Center signs the package)
+- Bundles all three architectures (x86, x64, ARM64) into a single file
+- Outputs a `.msixupload` file ready for Partner Center
+
+**3. Locate the output**
+
+The `.msixupload` file will be in:
+```
+YAHAA\bin\Release\store-upload\
+```
+
+**4. Submit to Partner Center**
+
+Upload the `.msixupload` file under **Packages** in your Partner Center submission.
 
 ---
 
