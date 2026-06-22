@@ -12,11 +12,9 @@
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Home Assistant brand palette -->
-            <Color x:Key="HaBlue">#FF03A9F4</Color>
-            <Color x:Key="HaBlueDark">#FF0288D1</Color>
-            <Color x:Key="HaBlueGlow">#3303A9F4</Color>
-            <SolidColorBrush x:Key="HaBlueBrush" Color="{StaticResource HaBlue}" />
-            <SolidColorBrush x:Key="HaBlueDarkBrush" Color="{StaticResource HaBlueDark}" />
+            <SolidColorBrush x:Key="HaBlueBrush" Color="#FF03A9F4"/>
+            <SolidColorBrush x:Key="HaBlueDarkBrush" Color="#FF0288D1"/>
+            <SolidColorBrush x:Key="HaBlueGlowBrush" Color="#3303A9F4"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
